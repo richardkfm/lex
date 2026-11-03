@@ -36,8 +36,8 @@ Linux and macOS.
   have a context menu.
 - **Host chip** with the machine's name and model; its popover shows the
   chip, memory, OS and the session server.
-- **Command palette** (⇧⌘P, Ctrl+Shift+P, or the ⚡ button): every command, and every pane
-  to jump to, fuzzy-matched.
+- **Command palette** (Ctrl+Shift+P, or the ⚡ button): every command, and
+  every pane to jump to, fuzzy-matched.
 - **The aurora look** of [patina](https://github.com/patina-os/patina):
   true black with neon green as the accent and violet as the second color,
   in the window, the panes and the terminals' sixteen colors; KDE's thin
@@ -46,8 +46,8 @@ Linux and macOS.
   glyphs for programs. Dark by default; light (lavender white) or the
   system's.
   JetBrains Mono embedded.
-- **Settings** behind the gear of the title bar (⌘, or Ctrl+Shift+,, or
-  View ▸ Settings…): appearance, text size (⌘+ ⌘− ⌘0), line spacing, the
+- **Settings** behind the gear of the title bar (Ctrl+Shift+, or
+  View ▸ Settings…): appearance, text size (Ctrl+= Ctrl+- Ctrl+0), line spacing, the
   cursor's shape and blinking, ligatures, and the notification of a long
   command finishing in the background. They show in every pane at once
   and are kept in `settings.json`, in the data directory.
@@ -99,27 +99,29 @@ from the applications menu, or run `/opt/lex/lex`.
 
 ## Shortcuts
 
-| macOS | Windows, Linux | |
-|---|---|---|
-| ⌘T | Ctrl+Shift+T | New tab |
-| ⌘D / ⇧⌘D | Ctrl+Shift+D / Ctrl+Shift+E | Split right / down |
-| ⌘W / ⇧⌘W | Ctrl+Shift+W | Close pane / tab |
-| ⇧⌘↩ | Ctrl+Shift+Enter | Zoom the pane |
-| ⌥⌘ arrows | Alt+arrows | Focus the pane in that direction |
-| ⌃⌘ arrows | Alt+Shift+arrows | Move the nearest divider |
-| ⌃⌘= | | Equalize panes |
-| ⌘1…⌘9, ⇧⌘[ ⇧⌘], ⌃Tab | Ctrl+Shift+1…9, Ctrl+PageUp/PageDown, Ctrl+Tab | Switch tabs |
-| ⇧⌘R | Ctrl+Shift+R | Rename tab |
-| ⇧⌘P, ⌘P | Ctrl+Shift+P | Command palette |
-| ⌘K | Ctrl+Shift+K | Clear |
-| ⌘, | Ctrl+Shift+, | Settings |
-| ⌘+ ⌘− ⌘0 | Ctrl+= Ctrl+- Ctrl+0 | Text size |
-| ⌥⌘Q | | Quit and end all sessions |
+| Keys | |
+|---|---|
+| Ctrl+Shift+T | New tab |
+| Ctrl+Shift+D / Ctrl+Shift+E | Split right / down |
+| Ctrl+Shift+W | Close the pane |
+| Ctrl+Shift+Enter | Zoom the pane |
+| Alt+arrows | Focus the pane in that direction |
+| Alt+Shift+arrows | Move the nearest divider |
+| Ctrl+Shift+1…9, Ctrl+PageUp/PageDown, Ctrl+Tab | Switch tabs |
+| Ctrl+Shift+R | Rename tab |
+| Ctrl+Shift+P | Command palette |
+| Ctrl+Shift+K | Clear |
+| Ctrl+Shift+, | Settings |
+| Ctrl+= Ctrl+- Ctrl+0 | Text size |
 
-Elsewhere than on macOS, Control and a letter are the terminal's (Ctrl+C,
-Ctrl+D, Ctrl+W…), so Lex's shortcuts take Shift too, as copying and
-pasting do (Ctrl+Shift+C, Ctrl+Shift+V), and none take Control and Alt,
-which type characters (AltGr) on many keyboards.
+Close Tab, Equalize Panes and Quit and End All Sessions are in the command
+palette. Control and a letter are the terminal's (Ctrl+C, Ctrl+D,
+Ctrl+W…), so Lex's shortcuts take Shift too, as copying and pasting do
+(Ctrl+Shift+C, Ctrl+Shift+V), and none take Control and Alt, which type
+characters (AltGr) on many keyboards.
+
+On macOS the shortcuts take ⌘ instead (⌘T, ⌘D, ⇧⌘P…), and the menus
+list them all.
 
 ## Develop and build
 
