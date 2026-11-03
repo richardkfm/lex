@@ -55,7 +55,8 @@ func (a *App) view(c *ui.Context) {
 var ownControls = runtime.GOOS == "windows"
 
 // titleBar draws the title bar under the window's controls: the host,
-// the tabs, and the buttons of the command palette and a new tab.
+// the tabs, and the buttons of the command palette, a new tab and the
+// settings.
 func (a *App) titleBar(c *ui.Context, k *colors) {
 	bar := c.TitleBar()
 	left := bar.Left
@@ -77,6 +78,7 @@ func (a *App) titleBar(c *ui.Context, k *colors) {
 			if iconButton(c, k, "list-add", "New Tab", 30, 16).Tooltip(tip("New Tab", &cmdNewTab)).Clicked() {
 				a.newTab(a.currentDir())
 			}
+			a.settingsButton(c, k)
 		})
 		a.windowControls(c, k)
 	})

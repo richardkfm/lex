@@ -9,7 +9,7 @@ color of the text, whatever color the files carry.
 | File | From `Papirus/16x16/` |
 |---|---|
 | `computer.svg`, `computer-laptop.svg` | `devices/` |
-| `edit-find.svg`, `list-add.svg`, `quickopen.svg`, `run-build.svg` | `actions/` |
+| `configure.svg`, `edit-find.svg`, `list-add.svg`, `list-remove.svg`, `quickopen.svg`, `run-build.svg` | `actions/` |
 | `view-fullscreen.svg`, `view-restore.svg` | `actions/` |
 | `view-split-left-right.svg`, `view-split-top-bottom.svg` | `actions/` |
 | `window-close.svg`, `window-maximize.svg`, `window-minimize.svg`, `window-restore.svg` | `actions/` |

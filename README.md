@@ -42,9 +42,13 @@ Linux and macOS.
   true black with neon green as the accent and violet as the second color,
   in the window, the panes and the terminals' sixteen colors, and
   [Papirus](https://github.com/PapirusDevelopmentTeam/papirus-icon-theme)'s
-  icons. Dark by default; light (lavender white) or the system's in
-  View ▸ Appearance. Text size (⌘+ ⌘− ⌘0),
+  icons. Dark by default; light (lavender white) or the system's.
   JetBrains Mono embedded.
+- **Settings** behind the gear of the title bar (⌘, or Ctrl+Shift+,, or
+  View ▸ Settings…): appearance, text size (⌘+ ⌘− ⌘0), line spacing, the
+  cursor's shape and blinking, ligatures, and the notification of a long
+  command finishing in the background. They show in every pane at once
+  and are kept in `settings.json`, in the data directory.
 
 ## Install
 
@@ -106,6 +110,7 @@ from the applications menu, or run `/opt/lex/lex`.
 | ⇧⌘R | Ctrl+Shift+R | Rename tab |
 | ⇧⌘P, ⌘P | Ctrl+Shift+P | Command palette |
 | ⌘K | Ctrl+Shift+K | Clear |
+| ⌘, | Ctrl+Shift+, | Settings |
 | ⌘+ ⌘− ⌘0 | Ctrl+= Ctrl+- Ctrl+0 | Text size |
 | ⌥⌘Q | | Quit and end all sessions |
 
@@ -185,9 +190,9 @@ of the run ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 |---|---|
 | `main.go` | the app, its window, and `-server` |
 | `state.go` | tabs, the tree of splits, panes, saving and restoring the layout |
-| `view.go`, `tabs.go`, `host.go`, `commands.go` | the interface: title bar, tabs, panes, host popover, menus and palette |
+| `view.go`, `tabs.go`, `host.go`, `commands.go`, `settingsview.go` | the interface: title bar, tabs, panes, host popover, menus, palette and settings panel |
 | `programs.go` | how programs show: names and glyphs |
-| `style.go`, `settings.go` | colors, fonts, terminal themes; appearance and text size |
+| `style.go`, `settings.go` | colors, fonts, terminal themes; the settings and how they apply |
 | `internal/rex` | the session server and its client: PTYs, foreground processes, headless screens, the socket protocol |
 
 Not replicated: Rex's connections to servers on other machines. Lex's

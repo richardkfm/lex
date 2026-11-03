@@ -338,3 +338,60 @@ func TestPaletteScrolls(t *testing.T) {
 		t.Error("the keys chose a row out of sight")
 	}
 }
+
+// TestSettingsPanel opens the settings with the gear and changes them
+// with clicks: each change reaches the terminals' font and settings.json.
+func TestSettingsPanel(t *testing.T) {
+	saved, font := prefs, termFont
+	t.Cleanup(func() { prefs, termFont = saved, font })
+	prefs = settings{FontSize: defaultFontSize}
+	applyFont()
+	a, tt := newTestApp(t)
+	tt.Frame()
+	click := func(label string) {
+		t.Helper()
+		r, ok := tt.Find(label)
+		if !ok {
+			t.Fatalf("no %q; texts %q", label, tt.Texts())
+		}
+		tt.Move(r.X+r.W/2, r.Y+r.H/2)
+		tt.Frame()
+		tt.Press(r.X+r.W/2, r.Y+r.H/2)
+		tt.Frame()
+		tt.Release(r.X+r.W/2, r.Y+r.H/2)
+		tt.Frame()
+	}
+	click("Settings")
+	if !a.settingsOpen {
+		t.Fatal("the gear did not open the settings")
+	}
+	click("Bar")
+	click("Relaxed")
+	click("Ligatures")
+	click("Done notifications")
+	click("Blinking cursor")
+	click("Bigger Text")
+	want := settings{FontSize: defaultFontSize + 1, LineHeight: 1.2, Cursor: "bar", NoBlink: true, NoLigatures: true, NoNotify: true}
+	if prefs != want {
+		t.Fatalf("settings after the clicks: %+v, want %+v", prefs, want)
+	}
+	if termFont.LineHeight != 1.2 || termFont.Size != defaultFontSize+1 || !slices.Contains(termFont.Features, "-calt") {
+		t.Errorf("the terminals' font is %+v", termFont)
+	}
+	b, err := os.ReadFile(settingsPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{`"cursor": "bar"`, `"noLigatures": true`, `"lineHeight": 1.2`, `"noNotify": true`} {
+		if !strings.Contains(string(b), s) {
+			t.Errorf("settings.json has no %s:\n%s", s, b)
+		}
+	}
+	if got := string(prefs.cursorSequence()); got != "\x1b[6 q" {
+		t.Errorf("the sequence of a steady bar is %q", got)
+	}
+	click("Reset")
+	if prefs.FontSize != defaultFontSize {
+		t.Errorf("Reset left the text size at %v", prefs.FontSize)
+	}
+}

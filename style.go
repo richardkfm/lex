@@ -31,6 +31,8 @@ type colors struct {
 	// tile and tileFg are the program tiles of tabs; tileBack is a tile
 	// peeking out behind.
 	tile, tileFg, tileBack ui.Color
+	// switchOff is the track of a switch that is off.
+	switchOff ui.Color
 
 	busy, attention, danger ui.Color
 
@@ -59,6 +61,8 @@ var darkColors = colors{
 	tile:     ui.Hex("#17141f"), // base02
 	tileFg:   ui.Hex("#d8d4e6"),
 	tileBack: ui.Hex("#524a6b"), // base03
+
+	switchOff: ui.Hex("#17141f"), // base02
 
 	busy:      ui.Hex("#3cff9d"), // base0B
 	attention: ui.Hex("#ffa45c"), // base09, kitty's bell border
@@ -92,6 +96,8 @@ var lightColors = colors{
 	tile:     ui.Hex("#2a2638"), // base05: dark tiles, as aurora's app glyphs
 	tileFg:   ui.Hex("#f7f6fb"),
 	tileBack: ui.Hex("#928bab"), // base03
+
+	switchOff: ui.Hex("#e0dcec"), // base02
 
 	busy:      ui.Hex("#077141"), // base0B
 	attention: ui.Hex("#b2590e"), // base09

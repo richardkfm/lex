@@ -163,7 +163,7 @@ func (a *App) saveNow() {
 // connection, for the next window.
 func (a *App) reset() {
 	a.tabs, a.active, a.focusReq = nil, 0, nil
-	a.paletteOpen, a.hostOpen, a.renaming = false, false, nil
+	a.paletteOpen, a.hostOpen, a.settingsOpen, a.renaming = false, false, false, nil
 	a.saveDue, a.quitting, a.lastSnapshot, a.title = false, false, "", ""
 }
 
