@@ -51,8 +51,12 @@ func (a *App) view(c *ui.Context) {
 }
 
 // ownControls tells that the title bar draws the window's controls: on
-// Windows, whose own would look like none of the rest of it.
-var ownControls = runtime.GOOS == "windows"
+// Windows, whose own would look like none of the rest of it, and on Linux,
+// where GTK's take more room than their buttons need. GTK 3 puts its
+// buttons in a header bar that also reserves room for a title of at least
+// five characters, which stays empty, so Lex's buttons would sit about 90
+// pixels to the left of them.
+var ownControls = runtime.GOOS == "windows" || runtime.GOOS == "linux"
 
 // titleBar draws the title bar under the window's controls: the host,
 // the tabs, and the buttons of the command palette, a new tab and the
