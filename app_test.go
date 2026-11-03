@@ -12,7 +12,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
-	"gorex/internal/rex"
+	"lex/internal/rex"
 )
 
 // testShell is the shell of the tests: its prompt ends with prompt, and
@@ -24,6 +24,9 @@ var testShell = func() (s struct{ path, prompt, run, program, dir string }) {
 		return
 	}
 	s.path, s.prompt, s.run, s.program, s.dir = "/bin/sh", "$", "cd /usr/bin && sleep 3", "sleep", "/usr/bin"
+	if os.Geteuid() == 0 {
+		s.prompt = "#" // sh's prompt for root, as in containers
+	}
 	return
 }()
 
@@ -34,7 +37,7 @@ func testDir(t *testing.T) string {
 	if runtime.GOOS == "windows" {
 		base = ""
 	}
-	dir, err := os.MkdirTemp(base, "gorex")
+	dir, err := os.MkdirTemp(base, "lex")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +49,7 @@ func testDir(t *testing.T) string {
 func newTestApp(t *testing.T) (*App, *ui.Tester) {
 	t.Helper()
 	dir := testDir(t)
-	t.Setenv("GOREX_DIR", dir)
+	t.Setenv("LEX_DIR", dir)
 	t.Setenv("SHELL", testShell.path)
 	go rex.Serve()
 	var client *rex.Client

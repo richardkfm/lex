@@ -1,4 +1,4 @@
-// Package rex is GoRex's session server and its client.
+// Package rex is Lex's session server and its client.
 //
 // The server owns the pseudo-terminals: shells keep running when the app
 // quits, and the next launch attaches to them again, with what they printed
@@ -18,6 +18,10 @@ import (
 
 // ProtocolVersion changes whenever the wire protocol does.
 const ProtocolVersion = 1
+
+// AppVersion is the version of the app, which sessions see in
+// TERM_PROGRAM_VERSION: the app sets it before it serves.
+var AppVersion = "0.0.0"
 
 // Request is a line of the control connection, from the client.
 type Request struct {
@@ -108,16 +112,20 @@ type Attach struct {
 	Rows int    `json:"rows"`
 }
 
-// Dir returns the directory of the server's socket, log and state.
+// Dir returns the directory of the server's socket, log and state:
+// LEX_DIR, or GOREX_DIR, as GoRex named it, or Lex in the user's
+// configuration directory.
 func Dir() string {
-	if d := os.Getenv("GOREX_DIR"); d != "" {
-		return d
+	for _, k := range []string{"LEX_DIR", "GOREX_DIR"} {
+		if d := os.Getenv(k); d != "" {
+			return d
+		}
 	}
 	base, err := os.UserConfigDir()
 	if err != nil {
 		base = os.TempDir()
 	}
-	return filepath.Join(base, "GoRex")
+	return filepath.Join(base, "Lex")
 }
 
 // SocketPath returns the path of the server's socket: in Dir, unless that
@@ -129,9 +137,9 @@ func SocketPath() string {
 	}
 	h := fnv.New32a()
 	h.Write([]byte(p))
-	name := fmt.Sprintf("gorex-%x.sock", h.Sum32())
+	name := fmt.Sprintf("lex-%x.sock", h.Sum32())
 	if uid := os.Getuid(); uid >= 0 { // Windows has none, and a temporary directory per user
-		name = fmt.Sprintf("gorex-%d-%x.sock", uid, h.Sum32())
+		name = fmt.Sprintf("lex-%d-%x.sock", uid, h.Sum32())
 	}
 	return filepath.Join(os.TempDir(), name)
 }

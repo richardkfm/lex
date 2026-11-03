@@ -1,4 +1,4 @@
-// Mkicon draws GoRex's icon, resources/icon.png: the window's gradient in
+// Mkicon draws Lex's icon, resources/icon.png: the window's gradient in
 // the squircle of macOS icons, with panes on it as the app splits them.
 //
 //	go run ./tools/mkicon

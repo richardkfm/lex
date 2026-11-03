@@ -78,6 +78,8 @@ func inspect(pid int) (p procInfo) {
 	return p
 }
 
+func linuxHost(*HostInfo) {}
+
 func sysctlString(name string) string {
 	s, _ := unix.Sysctl(name)
 	return s
