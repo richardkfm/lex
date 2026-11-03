@@ -15,8 +15,8 @@ type colors struct {
 	// bg is the window's, flat: the title bar and the gaps between panes.
 	bg ui.Color
 
-	// The panes: a flat card with a hairline rim, the accent's edge round
-	// the focused one.
+	// The panes: a flat card with a hairline rim, a brighter one round the
+	// focused pane.
 	card, cardBorder, cardBorderFocused ui.Color
 
 	text, textMuted, textFaint, iconMuted ui.Color
@@ -28,9 +28,9 @@ type colors struct {
 	// of it and its thin edge.
 	accent, selFill, selEdge ui.Color
 	sep                      ui.Color
-	// tile and tileFg are the program tiles of tabs; tileBack is a tile
-	// peeking out behind.
-	tile, tileFg, tileBack ui.Color
+	// tile and tileFg face the host's glyph in its popover; tileRim rims
+	// the program tiles of tabs.
+	tile, tileFg, tileRim ui.Color
 	// switchOff is the track of a switch that is off.
 	switchOff ui.Color
 
@@ -44,7 +44,7 @@ var darkColors = colors{
 
 	card:              ui.Hex("#0b0a10"),            // base01
 	cardBorder:        ui.RGBA(216, 212, 230, 0.12), // base05 at 12 %, patina's rim
-	cardBorderFocused: ui.RGBA(60, 255, 157, 0.75),  // base0B
+	cardBorderFocused: ui.RGBA(216, 212, 230, 0.28), // base05 at 28 %
 
 	text:      ui.Hex("#d8d4e6"), // base05
 	textMuted: ui.Hex("#aea8c4"), // between base04 and base05
@@ -58,9 +58,9 @@ var darkColors = colors{
 	selEdge: ui.RGBA(60, 255, 157, 0.40), // and four times as much on its edge
 	sep:     ui.RGBA(216, 212, 230, 0.12),
 
-	tile:     ui.Hex("#17141f"), // base02
-	tileFg:   ui.Hex("#d8d4e6"),
-	tileBack: ui.Hex("#524a6b"), // base03
+	tile:    ui.Hex("#17141f"), // base02
+	tileFg:  ui.Hex("#d8d4e6"),
+	tileRim: ui.RGBA(255, 255, 255, 0.22),
 
 	switchOff: ui.Hex("#17141f"), // base02
 
@@ -79,7 +79,7 @@ var lightColors = colors{
 
 	card:              ui.Hex("#f7f6fb"),         // base00: lavender white
 	cardBorder:        ui.RGBA(42, 38, 56, 0.12), // base05 at 12 %
-	cardBorderFocused: ui.RGBA(7, 113, 65, 0.75), // base0B
+	cardBorderFocused: ui.RGBA(42, 38, 56, 0.28), // base05 at 28 %
 
 	text:      ui.Hex("#2a2638"), // base05
 	textMuted: ui.Hex("#4b4560"), // between base04 and base05
@@ -93,9 +93,9 @@ var lightColors = colors{
 	selEdge: ui.RGBA(7, 113, 65, 0.40),
 	sep:     ui.RGBA(42, 38, 56, 0.12),
 
-	tile:     ui.Hex("#2a2638"), // base05: dark tiles, as aurora's app glyphs
-	tileFg:   ui.Hex("#f7f6fb"),
-	tileBack: ui.Hex("#928bab"), // base03
+	tile:    ui.Hex("#2a2638"), // base05: dark tiles, as aurora's app glyphs
+	tileFg:  ui.Hex("#f7f6fb"),
+	tileRim: ui.RGBA(255, 255, 255, 0.95),
 
 	switchOff: ui.Hex("#e0dcec"), // base02
 

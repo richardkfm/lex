@@ -457,7 +457,7 @@ func (a *App) palette(c *ui.Context, k *colors) {
 					if selected {
 						glyph = k.accent
 					}
-					ui.Icon(c, icon(it.glyph)).Size(15, 15).TextColor(glyph)
+					ui.Icon(c, icon(it.glyph)).Size(16, 16).TextColor(glyph)
 					ui.Text(c, it.title).FontSize(13.5).FontWeight(500).TextColor(k.text).SingleLine().Ellipsis("…").Shrink(0.3).MinWidth(0)
 					if it.detail != "" {
 						ui.Text(c, it.detail).FontSize(13).TextColor(k.textFaint).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0)
