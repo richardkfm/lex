@@ -1,4 +1,4 @@
-module gorex
+module lex
 
 go 1.27.1
 

@@ -149,7 +149,7 @@ func sessionEnv(id string, extra []string) []string {
 			k == "COLUMNS", k == "LINES", k == "SHLVL", k == "OLDPWD", k == "PWD", k == "_",
 			strings.HasPrefix(k, "ITERM_"), strings.HasPrefix(k, "GHOSTTY_"), strings.HasPrefix(k, "KITTY_"),
 			strings.HasPrefix(k, "VSCODE_"), strings.HasPrefix(k, "WEZTERM_"), strings.HasPrefix(k, "ALACRITTY_"),
-			strings.HasPrefix(k, "GOREX_"), strings.HasPrefix(k, "MYGO_"):
+			strings.HasPrefix(k, "LEX_"), strings.HasPrefix(k, "GOREX_"), strings.HasPrefix(k, "MYGO_"):
 			continue
 		case k == "LANG" || k == "LC_ALL" || k == "LC_CTYPE":
 			hasLang = true
@@ -159,9 +159,9 @@ func sessionEnv(id string, extra []string) []string {
 	env = append(env,
 		"TERM=xterm-256color",
 		"COLORTERM=truecolor",
-		"TERM_PROGRAM=GoRex",
-		"TERM_PROGRAM_VERSION=0.1.0",
-		"GOREX_SESSION="+id,
+		"TERM_PROGRAM=Lex",
+		"TERM_PROGRAM_VERSION="+AppVersion,
+		"LEX_SESSION="+id,
 	)
 	if !hasLang {
 		env = append(env, "LANG=en_US.UTF-8")

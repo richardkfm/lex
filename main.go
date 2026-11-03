@@ -1,7 +1,8 @@
-// GoRex is a terminal of tabs and split panes, after Superlogical's Rex,
-// in MyGo's native UI. Its shells run in a session server of their own,
-// so that they outlive the app: quit it, open it again, and every tab and
-// pane is back as it was, its programs still running.
+// Lex is a terminal of tabs and split panes, after Superlogical's Rex and
+// forked from EGOIST's GoRex, in MyGo's native UI. Its shells run in a
+// session server of their own, so that they outlive the app: quit it, open
+// it again, and every tab and pane is back as it was, its programs still
+// running.
 //
 //	go tool mygo dev    the app, rebuilt as the code changes
 //	go run . -server    the session server alone, in the foreground
@@ -17,12 +18,15 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
-	"gorex/internal/rex"
+	"lex/internal/rex"
 )
 
 func main() {
 	// -server runs the session server; other arguments are AppKit's, as
 	// -NSWindowResizeTime, which it reads itself.
+	if v := mygo.App.Version(); v != "" {
+		rex.AppVersion = v
+	}
 	if len(os.Args) > 1 && os.Args[1] == "-server" {
 		log.SetPrefix("[server] ")
 		if err := rex.Serve(); err != nil {
@@ -31,11 +35,16 @@ func main() {
 		return
 	}
 	// The state of the sessions lives in the app's data directory, which
-	// the server it starts takes from GOREX_DIR: "GoRex", or "GoRex Dev"
-	// under mygo dev, which keeps the installed app's sessions apart.
-	if os.Getenv("GOREX_DIR") == "" {
-		if dir, err := mygo.App.Path(mygo.PathUserData); err == nil {
-			os.Setenv("GOREX_DIR", dir)
+	// the server it starts takes from LEX_DIR: "Lex", or "Lex Dev" under
+	// mygo dev, which keeps the installed app's sessions apart. GoRex's
+	// GOREX_DIR still names another.
+	if os.Getenv("LEX_DIR") == "" {
+		dir := os.Getenv("GOREX_DIR")
+		if dir == "" {
+			dir, _ = mygo.App.Path(mygo.PathUserData)
+		}
+		if dir != "" {
+			os.Setenv("LEX_DIR", dir)
 		}
 	}
 	registerFonts()
@@ -66,7 +75,7 @@ func (a *App) open() {
 	client, err := rex.Connect()
 	if err != nil {
 		log.Print(err)
-		mygo.Dialog.Error("GoRex could not start its session server", err.Error())
+		mygo.Dialog.Error("Lex could not start its session server", err.Error())
 		mygo.App.Quit()
 		return
 	}
@@ -80,17 +89,17 @@ func (a *App) open() {
 			a.hello, err = client.Hello()
 		} else {
 			log.Print(err)
-			mygo.Dialog.Error("GoRex could not restart its session server", err.Error())
+			mygo.Dialog.Error("Lex could not restart its session server", err.Error())
 			mygo.App.Quit()
 			return
 		}
 	}
 	if err == nil && a.hello.Version != rex.ProtocolVersion {
-		a.err = "The session server is of another version of GoRex: quit and end all sessions to restart it."
+		a.err = "The session server is of another version of Lex: quit and end all sessions to restart it."
 	}
 	a.reset()
 	opts := mygo.WindowOptions{
-		Title:                "GoRex",
+		Title:                "Lex",
 		Width:                1000,
 		Height:               620,
 		MinWidth:             560,

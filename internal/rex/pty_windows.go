@@ -249,11 +249,11 @@ func shellCommand(cmd []string) (path string, argv []string, name string, err er
 // to its location, which cd changes alone: the server then finds where it
 // is as it does for other shells. $? stays as the command left it, for the
 // prompt of the profile, which runs first.
-const powershellPrompt = `$global:__GoRexPrompt = $function:prompt; ` +
+const powershellPrompt = `$global:__LexPrompt = $function:prompt; ` +
 	`function global:prompt { $ok = $global:?; ` +
 	`try { $l = $executionContext.SessionState.Path.CurrentLocation; ` +
 	`if ($l.Provider.Name -eq 'FileSystem') { [Environment]::CurrentDirectory = $l.ProviderPath } } catch {}; ` +
-	`if (-not $ok) { Write-Error '' -ErrorAction Ignore }; & $global:__GoRexPrompt }`
+	`if (-not $ok) { Write-Error '' -ErrorAction Ignore }; & $global:__LexPrompt }`
 
 // processAlive reports whether a process runs.
 func processAlive(pid int) bool {

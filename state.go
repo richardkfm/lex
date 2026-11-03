@@ -16,7 +16,7 @@ import (
 	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
 
-	"gorex/internal/rex"
+	"lex/internal/rex"
 )
 
 // Tab is a tab of the window: panes in a tree of splits.
@@ -72,7 +72,7 @@ type Pane struct {
 	startDir string
 }
 
-// App is the state of GoRex's window.
+// App is the state of Lex's window.
 type App struct {
 	win    *mygo.Window
 	client *rex.Client
@@ -226,7 +226,7 @@ func (a *App) attach(p *Pane, cols, rows int) {
 		},
 		OnNotify: func(title, body string) {
 			if title == "" {
-				title = "GoRex"
+				title = "Lex"
 			}
 			mygo.NewNotification(mygo.NotificationOptions{Title: title, Body: body}).Show()
 		},

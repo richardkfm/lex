@@ -1,0 +1,32 @@
+name: Release
+
+# Push a tag vX.Y.Z whose version is mygo.json's: Lex is tested, built for
+# Windows and Linux, and its packages uploaded to a draft release, which
+# you review and publish.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # the draft release, and the uploads to it
+
+jobs:
+  version:
+    name: Check the version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: The tag is mygo.json's version
+        run: |
+          want="v$(jq -r .version mygo.json)"
+          if [ "$GITHUB_REF_NAME" != "$want" ]; then
+            echo "::error::The tag $GITHUB_REF_NAME is not mygo.json's version, $want"
+            exit 1
+          fi
+
+  release:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+    with:
+      release: true

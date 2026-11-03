@@ -67,7 +67,7 @@ func hostInfo() HostInfo {
 				}
 			}
 		}
-		h.Model = "Linux"
+		linuxHost(&h)
 	}
 	if h.Name == "" {
 		h.Name, _ = os.Hostname()

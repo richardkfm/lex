@@ -15,7 +15,7 @@ import (
 // leaves it ignoring Ctrl-C. The program runs in the test's process again,
 // as does the server.
 func TestCtrlC(t *testing.T) {
-	switch os.Getenv("GOREX_TEST_CTRLC") {
+	switch os.Getenv("LEX_TEST_CTRLC") {
 	case "server":
 		ctrlCServer(t)
 		return
@@ -31,7 +31,7 @@ func TestCtrlC(t *testing.T) {
 		return
 	}
 	cmd := exec.Command(os.Args[0], "-test.run=^TestCtrlC$", "-test.v")
-	cmd.Env = append(os.Environ(), "GOREX_TEST_CTRLC=server")
+	cmd.Env = append(os.Environ(), "LEX_TEST_CTRLC=server")
 	cmd.SysProcAttr = detached()
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("%v\n%s", err, out)
@@ -39,7 +39,7 @@ func TestCtrlC(t *testing.T) {
 }
 
 func ctrlCServer(t *testing.T) {
-	os.Setenv("GOREX_TEST_CTRLC", "program")
+	os.Setenv("LEX_TEST_CTRLC", "program")
 	p, err := startPTY(os.Args[0], []string{os.Args[0], "-test.run=^TestCtrlC$"}, os.TempDir(), os.Environ(), 80, 24)
 	if err != nil {
 		t.Fatal(err)
