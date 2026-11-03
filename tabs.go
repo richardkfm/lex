@@ -120,7 +120,7 @@ func (a *App) tabItem(c *ui.Context, k *colors, i int, t *Tab, width float32) {
 			fadeText(p, r, tabLabel(name, detail, nameColor, detailColor))
 		})
 		if hovered && len(a.tabs) > 1 {
-			x := iconButton(c, k, "window-close", "Close Tab", 18, 10).Tooltip("Close Tab")
+			x := iconButton(c, k, "window-close", "Close Tab", 18, 14).Tooltip("Close Tab")
 			if x.Clicked() {
 				a.later(c, func() { a.closeTab(t) })
 			}

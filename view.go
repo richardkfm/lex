@@ -229,8 +229,8 @@ func (a *App) node(c *ui.Context, k *colors, t *Tab, n *Node) ui.Element {
 }
 
 // paneCard draws a pane: a flat card with a header over its terminal, in
-// a hairline rim, which is the accent round the focused pane, as kitty's
-// active border in patina.
+// a hairline rim, brighter round the focused pane, whose glyph in the
+// header takes the accent.
 func (a *App) paneCard(c *ui.Context, k *colors, t *Tab, p *Pane) ui.Element {
 	focused := t.Focus == p
 	card := ui.Column(c.Key(p.ID)).Radius(cardR).Clip().MinWidth(0).MinHeight(0)
@@ -386,7 +386,7 @@ func (a *App) errorBanner(c *ui.Context, k *colors) {
 				Shadow(0, 8, 24, 0, k.shadow).AlignItems(ui.Center).Children(func() {
 				ui.Box(c).Size(8, 8).Radius(4).Background(k.danger)
 				ui.Text(c, a.err).FontSize(12.5).TextColor(k.text).MaxWidth(520)
-				if iconButton(c, k, "window-close", "Dismiss", 22, 12).Clicked() {
+				if iconButton(c, k, "window-close", "Dismiss", 22, 14).Clicked() {
 					a.err = ""
 				}
 			})

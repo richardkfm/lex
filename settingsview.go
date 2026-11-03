@@ -59,12 +59,12 @@ func (a *App) settingsPanel(c *ui.Context, k *colors) {
 
 	// Text size: smaller, the size, bigger, and back to the default.
 	settingRow(c, k, "Text size", func() {
-		if iconButton(c, k, "list-remove", "Smaller Text", 26, 14).Tooltip(tip("Smaller Text", &cmdSmaller)).Clicked() {
+		if iconButton(c, k, "list-remove", "Smaller Text", 26, 16).Tooltip(tip("Smaller Text", &cmdSmaller)).Clicked() {
 			a.setFontSize(prefs.FontSize - 1)
 		}
 		ui.Text(c, fmt.Sprintf("%g", prefs.FontSize)).FontSize(13).FontWeight(600).TextColor(k.text).
 			Width(38).TextAlign(ui.Center)
-		if iconButton(c, k, "list-add", "Bigger Text", 26, 14).Tooltip(tip("Bigger Text", &cmdBigger)).Clicked() {
+		if iconButton(c, k, "list-add", "Bigger Text", 26, 16).Tooltip(tip("Bigger Text", &cmdBigger)).Clicked() {
 			a.setFontSize(prefs.FontSize + 1)
 		}
 		reset := ui.Text(c, "Reset").FontSize(12).Padding(3, 7).Radius(4).Margin(0, 0, 0, 4).Role(ui.RoleButton)

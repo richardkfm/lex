@@ -12,7 +12,7 @@ Linux and macOS.
 ## What it does
 
 - **Tabs and split panes.** Every pane is a flat card in a hairline rim, the
-  focused one in a green edge, with its program's icon, name and directory
+  focused one in a brighter rim, with its program's icon, name and directory
   in its header, and buttons to split right, split down, zoom and close.
   Drag the gaps between panes to resize them (double-click resets a split
   to half).
@@ -40,9 +40,11 @@ Linux and macOS.
   to jump to, fuzzy-matched.
 - **The aurora look** of [patina](https://github.com/patina-os/patina):
   true black with neon green as the accent and violet as the second color,
-  in the window, the panes and the terminals' sixteen colors, and
+  in the window, the panes and the terminals' sixteen colors; KDE's thin
+  Breeze icons on the buttons and
   [Papirus](https://github.com/PapirusDevelopmentTeam/papirus-icon-theme)'s
-  icons. Dark by default; light (lavender white) or the system's.
+  glyphs for programs. Dark by default; light (lavender white) or the
+  system's.
   JetBrains Mono embedded.
 - **Settings** behind the gear of the title bar (⌘, or Ctrl+Shift+,, or
   View ▸ Settings…): appearance, text size (⌘+ ⌘− ⌘0), line spacing, the
@@ -219,7 +221,9 @@ server listens on a local socket only.
   (BSD-3-Clause or Unlicense).
 - [patina](https://github.com/patina-os/patina)'s aurora theme
   (GPL-3.0-or-later), by the patina contributors, gives Lex its colors.
-- Icons: the [Papirus icon theme](https://github.com/PapirusDevelopmentTeam/papirus-icon-theme)
-  (GPL-3.0, `assets/icons/README.md` lists them) and
+- Icons: KDE's [Breeze icons](https://invent.kde.org/frameworks/breeze-icons)
+  (LGPL-3.0-or-later), the
+  [Papirus icon theme](https://github.com/PapirusDevelopmentTeam/papirus-icon-theme)
+  (GPL-3.0; `assets/icons/README.md` lists which is which) and
   [Simple Icons](https://simpleicons.org) (CC0). Font:
   [JetBrains Mono](https://www.jetbrains.com/lp/mono/) (OFL).
