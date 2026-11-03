@@ -87,11 +87,13 @@ type App struct {
 	// terminal.
 	focusReq *Pane
 
-	// The command palette, the host's popover and the tab being renamed.
+	// The command palette, the host's popover, the settings panel and the
+	// tab being renamed.
 	paletteOpen  bool
 	paletteQuery string
 	paletteSel   int
 	hostOpen     bool
+	settingsOpen bool
 	renaming     *Tab
 	renameText   string
 	renameFocus  bool
@@ -193,7 +195,8 @@ func (a *App) newPane(dir string, cols, rows int) *Pane {
 // attach makes the pane's terminal, attached to its session.
 func (a *App) attach(p *Pane, cols, rows int) {
 	if p.SID == "" {
-		term, err := terminal.New(terminal.Options{Conn: nopConn{}, Transparent: true, Font: termFont, Theme: lightTerm, DarkTheme: darkTerm})
+		term, err := terminal.New(terminal.Options{Conn: nopConn{}, Transparent: true, Font: termFont, Theme: lightTerm, DarkTheme: darkTerm,
+			Cursor: prefs.cursorStyle(), NoBlink: prefs.NoBlink})
 		if err == nil {
 			term.Feed([]byte("\x1b[31mCould not start a session: " + a.err + "\x1b[0m\r\n"))
 			p.term = term
@@ -218,6 +221,8 @@ func (a *App) attach(p *Pane, cols, rows int) {
 		Theme:       lightTerm,
 		DarkTheme:   darkTerm,
 		Transparent: true,
+		Cursor:      prefs.cursorStyle(),
+		NoBlink:     prefs.NoBlink,
 		OnTitle: func(title string) {
 			update(func() { p.title = title })
 		},
@@ -852,7 +857,7 @@ func (a *App) apply(byID map[string]rex.SessionInfo) {
 				if !seen {
 					p.attention = true
 				}
-				if !a.focusedWin && time.Since(was.LastInput) > 8*time.Second {
+				if !prefs.NoNotify && !a.focusedWin && time.Since(was.LastInput) > 8*time.Second {
 					prog := programOf(was.Program)
 					n := mygo.NewNotification(mygo.NotificationOptions{
 						Title: prog.Name + " finished",

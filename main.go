@@ -107,7 +107,7 @@ func (a *App) open() {
 		StateKey:             "main",
 		TitleBarStyle:        mygo.TitleBarHidden,
 		TrafficLightPosition: &mygo.Point{X: 16, Y: 15},
-		BackgroundColor:      "light-dark(#efe1e6, #231e27)",
+		BackgroundColor:      "light-dark(#eeecf5, #000000)",
 		Content:              ui.View(a.view),
 	}
 	if ownControls {
@@ -163,7 +163,7 @@ func (a *App) saveNow() {
 // connection, for the next window.
 func (a *App) reset() {
 	a.tabs, a.active, a.focusReq = nil, 0, nil
-	a.paletteOpen, a.hostOpen, a.renaming = false, false, nil
+	a.paletteOpen, a.hostOpen, a.settingsOpen, a.renaming = false, false, false, nil
 	a.saveDue, a.quitting, a.lastSnapshot, a.title = false, false, "", ""
 }
 

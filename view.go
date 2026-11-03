@@ -12,7 +12,7 @@ import (
 const (
 	gap       = 8  // between panes, and around them
 	titleH    = 44 // the title bar
-	cardR     = 12 // the panes' corners
+	cardR     = 6  // the panes' corners, as Breeze rounds them
 	headerH   = 33 // the panes' headers
 	activeFor = 1500 * time.Millisecond
 )
@@ -22,8 +22,8 @@ func (a *App) view(c *ui.Context) {
 	a.runPosted()
 	k := colorsOf(c)
 	a.focusedWin = a.win == nil || a.win.IsFocused()
-	c.Root().Background(k.bgBottom)
-	ui.Column(c).Fill().Draw(func(p *ui.Painter, r ui.Rect) { paintBackground(p, r, k) }).Children(func() {
+	c.Root().Background(k.bg)
+	ui.Column(c).Fill().Background(k.bg).Children(func() {
 		a.titleBar(c, k)
 		ui.Column(c).Grow(1).MinHeight(0).Padding(0, gap, gap, gap).Children(func() {
 			if t := a.tab(); t != nil {
@@ -55,7 +55,8 @@ func (a *App) view(c *ui.Context) {
 var ownControls = runtime.GOOS == "windows"
 
 // titleBar draws the title bar under the window's controls: the host,
-// the tabs, and the buttons of the command palette and a new tab.
+// the tabs, and the buttons of the command palette, a new tab and the
+// settings.
 func (a *App) titleBar(c *ui.Context, k *colors) {
 	bar := c.TitleBar()
 	left := bar.Left
@@ -71,12 +72,13 @@ func (a *App) titleBar(c *ui.Context, k *colors) {
 		// window, and a double click on which zooms it.
 		ui.Spacer(c).MinWidth(titleFree - 14)
 		ui.Row(c).Gap(2).AlignItems(ui.Center).Shrink(0).Children(func() {
-			if iconButton(c, k, "command", "Command Palette", 30, 17).Tooltip(tip("Command Palette", &cmdPalette)).Clicked() {
+			if iconButton(c, k, "quickopen", "Command Palette", 30, 16).Tooltip(tip("Command Palette", &cmdPalette)).Clicked() {
 				a.openPalette()
 			}
-			if iconButton(c, k, "plus", "New Tab", 30, 19).Tooltip(tip("New Tab", &cmdNewTab)).Clicked() {
+			if iconButton(c, k, "list-add", "New Tab", 30, 16).Tooltip(tip("New Tab", &cmdNewTab)).Clicked() {
 				a.newTab(a.currentDir())
 			}
+			a.settingsButton(c, k)
 		})
 		a.windowControls(c, k)
 	})
@@ -84,7 +86,7 @@ func (a *App) titleBar(c *ui.Context, k *colors) {
 
 // windowControls draws the buttons that minimize, maximize and close the
 // window, when it has none of its own: they are the title bar's other
-// buttons, and close's face turns red, as Windows has it.
+// buttons, and close's face turns red under the pointer.
 func (a *App) windowControls(c *ui.Context, k *colors) {
 	win := a.win
 	if !ownControls || win == nil || win.IsFullScreen() {
@@ -92,33 +94,33 @@ func (a *App) windowControls(c *ui.Context, k *colors) {
 	}
 	maximized := win.IsMaximized()
 	ui.Row(c).Gap(2).AlignItems(ui.Center).Shrink(0).Children(func() {
-		ui.Box(c).Size(1, 16).Margin(0, 6).Background(k.tabSep)
-		if iconButton(c, k, "minus", "Minimize", 30, 16).Tooltip("Minimize").Clicked() {
+		ui.Box(c).Size(1, 16).Margin(0, 6).Background(k.sep)
+		if iconButton(c, k, "window-minimize", "Minimize", 30, 16).Tooltip("Minimize").Clicked() {
 			win.Minimize()
 		}
-		glyph, label := "square", "Maximize"
+		glyph, label := "window-maximize", "Maximize"
 		if maximized {
-			glyph, label = "copy", "Restore"
+			glyph, label = "window-restore", "Restore"
 		}
-		if iconButton(c, k, glyph, label, 30, 13).Tooltip(label).Clicked() {
+		if iconButton(c, k, glyph, label, 30, 16).Tooltip(label).Clicked() {
 			if maximized {
 				win.Unmaximize()
 			} else {
 				win.Maximize()
 			}
 		}
-		b := ui.Box(c).Size(30, 30).Center().Radius(30 / 2.6).Cursor(ui.CursorPointer).Role(ui.RoleButton).Label("Close").Tooltip("Close")
+		b := ui.Box(c).Size(30, 30).Center().Radius(buttonR).Cursor(ui.CursorPointer).Role(ui.RoleButton).Label("Close").Tooltip("Close")
 		col := k.iconMuted
 		if b.Pressed() {
-			b.Background(closeRed.Alpha(0.8))
-			col = ui.Hex("#ffffff")
+			b.Background(k.danger.Alpha(0.8))
+			col = k.bg
 		} else if b.Hovered() {
-			b.Background(closeRed)
-			col = ui.Hex("#ffffff")
+			b.Background(k.danger)
+			col = k.bg
 		}
 		b.Transition(ui.ElementTransition{Colors: true, Duration: 120 * time.Millisecond})
 		b.Children(func() {
-			ui.Icon(c, icon("x")).Size(17, 17).TextColor(col)
+			ui.Icon(c, icon("window-close")).Size(16, 16).TextColor(col)
 		})
 		if b.Clicked() {
 			win.Close()
@@ -126,8 +128,8 @@ func (a *App) windowControls(c *ui.Context, k *colors) {
 	})
 }
 
-// closeRed is the face of the close button under the pointer: Windows 11's.
-var closeRed = ui.Hex("#c42b1c")
+// buttonR rounds the buttons' faces.
+const buttonR = 5
 
 // tip is the tooltip of a button that runs a command: its label and its
 // keys.
@@ -141,7 +143,7 @@ func tip(label string, cmd *command) string {
 // iconButton is a borderless button of an icon, with a face on hover;
 // label names it for screen readers and its tooltip.
 func iconButton(c *ui.Context, k *colors, name, label string, size, iconSize float32) ui.Element {
-	b := ui.Box(c).Size(size, size).Center().Radius(size / 2.6).Cursor(ui.CursorPointer).Role(ui.RoleButton).Label(label)
+	b := ui.Box(c).Size(size, size).Center().Radius(min(buttonR, size/4)).Cursor(ui.CursorPointer).Role(ui.RoleButton).Label(label)
 	if b.Pressed() {
 		b.Background(k.pressed)
 	} else if b.Hovered() {
@@ -206,12 +208,18 @@ func (a *App) node(c *ui.Context, k *colors, t *Tab, n *Node) ui.Element {
 			n.Ratio = 0.5
 			a.changed()
 		}
+		// The divider under the pointer is a line along the gap, in the
+		// second color, and in the accent while it moves.
 		if div.Hovered() || div.Dragging() || div.Pressed() {
+			col := k.hover.Alpha(0.6)
+			if div.Dragging() || div.Pressed() {
+				col = k.accent.Alpha(0.7)
+			}
 			div.Draw(func(p *ui.Painter, r ui.Rect) {
 				if n.Vertical {
-					p.Fill(ui.Rect{X: r.X + r.W/2 - 18, Y: r.Y + r.H/2 - 1.5, W: 36, H: 3}, k.iconMuted.Alpha(0.6), 1.5)
+					p.Fill(ui.Rect{X: r.X, Y: r.Y + r.H/2 - 1, W: r.W, H: 2}, col, 1)
 				} else {
-					p.Fill(ui.Rect{X: r.X + r.W/2 - 1.5, Y: r.Y + r.H/2 - 18, W: 3, H: 36}, k.iconMuted.Alpha(0.6), 1.5)
+					p.Fill(ui.Rect{X: r.X + r.W/2 - 1, Y: r.Y, W: 2, H: r.H}, col, 1)
 				}
 			})
 		}
@@ -220,17 +228,17 @@ func (a *App) node(c *ui.Context, k *colors, t *Tab, n *Node) ui.Element {
 	return box
 }
 
-// paneCard draws a pane: a card with a header over its terminal.
+// paneCard draws a pane: a flat card with a header over its terminal, in
+// a hairline rim, which is the accent round the focused pane, as kitty's
+// active border in patina.
 func (a *App) paneCard(c *ui.Context, k *colors, t *Tab, p *Pane) ui.Element {
 	focused := t.Focus == p
 	card := ui.Column(c.Key(p.ID)).Radius(cardR).Clip().MinWidth(0).MinHeight(0)
-	bg, border, shadow := k.card, k.cardBorder, k.shadow
+	border := k.cardBorder
 	if focused {
-		bg, border, shadow = k.cardFocused, k.cardBorderFocused, k.shadowFocused
+		border = k.cardBorderFocused
 	}
-	card.Background(bg).Border(1, border).
-		Shadow(0, 1, 2, 0, shadow).
-		Shadow(0, 6, 22, -2, shadow)
+	card.Background(k.card).Border(1, border)
 	card.Transition(ui.ElementTransition{Colors: true, Duration: 160 * time.Millisecond})
 	hovered := card.Hovered()
 	card.Children(func() {
@@ -280,7 +288,11 @@ func (a *App) paneHeader(c *ui.Context, k *colors, t *Tab, p *Pane, focused, hov
 		a.focusReq = p
 	}
 	h.Children(func() {
-		ui.Icon(c, icon(prog.Glyph)).Size(14.5, 14.5).TextColor(k.text)
+		glyph := k.iconMuted
+		if focused {
+			glyph = k.accent
+		}
+		ui.Icon(c, icon(prog.Glyph)).Size(15, 15).TextColor(glyph)
 		ui.Row(c).Grow(1).MinWidth(0).Gap(5).AlignItems(ui.Center).ClipX().Children(func() {
 			ui.Text(c, name).FontSize(12.5).FontWeight(600).TextColor(k.text).SingleLine().Ellipsis("…").Shrink(0).MaxWidthPercent(80)
 			if detail != "" {
@@ -293,23 +305,23 @@ func (a *App) paneHeader(c *ui.Context, k *colors, t *Tab, p *Pane, focused, hov
 			if !show {
 				return
 			}
-			if iconButton(c, k, "columns-2", "Split Right", 26, 16).Tooltip(tip("Split Right", &cmdSplitRight)).Clicked() {
+			if iconButton(c, k, "view-split-left-right", "Split Right", 26, 16).Tooltip(tip("Split Right", &cmdSplitRight)).Clicked() {
 				t.setFocus(p)
 				a.split(false)
 			}
-			if iconButton(c, k, "rows-2", "Split Down", 26, 16).Tooltip(tip("Split Down", &cmdSplitDown)).Clicked() {
+			if iconButton(c, k, "view-split-top-bottom", "Split Down", 26, 16).Tooltip(tip("Split Down", &cmdSplitDown)).Clicked() {
 				t.setFocus(p)
 				a.split(true)
 			}
-			zoom, label := "maximize-2", "Zoom"
+			zoom, label := "view-fullscreen", "Zoom"
 			if t.Zoom == p {
-				zoom, label = "minimize-2", "Unzoom"
+				zoom, label = "view-restore", "Unzoom"
 			}
 			if iconButton(c, k, zoom, "Zoom", 26, 16).Tooltip(tip(label, &cmdZoom)).Clicked() {
 				t.setFocus(p)
 				a.toggleZoom()
 			}
-			if iconButton(c, k, "x", "Close Pane", 26, 17).Tooltip(tip("Close Pane", &cmdClosePane)).Clicked() {
+			if iconButton(c, k, "window-close", "Close Pane", 26, 16).Tooltip(tip("Close Pane", &cmdClosePane)).Clicked() {
 				a.later(c, func() { a.closePane(p) })
 			}
 		})
@@ -370,11 +382,11 @@ func activityDot(c *ui.Context, col ui.Color, size float32) ui.Element {
 func (a *App) errorBanner(c *ui.Context, k *colors) {
 	ui.Overlay(c, func() {
 		ui.Row(c).Absolute().Bottom(18).Left(0).Right(0).Justify(ui.Center).PassThrough().Children(func() {
-			ui.Row(c).Gap(10).Padding(8, 10, 8, 14).Radius(12).Background(k.panel).Border(1, k.panelBorder).
-				Shadow(0, 8, 24, 0, k.shadowFocused).AlignItems(ui.Center).Children(func() {
-				ui.Box(c).Size(8, 8).Radius(4).Background(ui.Hex("#ef4444"))
+			ui.Row(c).Gap(10).Padding(8, 10, 8, 14).Radius(cardR).Background(k.panel).Border(1, k.panelBorder).
+				Shadow(0, 8, 24, 0, k.shadow).AlignItems(ui.Center).Children(func() {
+				ui.Box(c).Size(8, 8).Radius(4).Background(k.danger)
 				ui.Text(c, a.err).FontSize(12.5).TextColor(k.text).MaxWidth(520)
-				if iconButton(c, k, "x", "Dismiss", 22, 14).Clicked() {
+				if iconButton(c, k, "window-close", "Dismiss", 22, 12).Clicked() {
 					a.err = ""
 				}
 			})

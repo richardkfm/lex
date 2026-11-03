@@ -54,7 +54,8 @@ var (
 	cmdActualSize  = command{Title: "Actual Size", Accel: "CmdOrCtrl+0", Keys: "⌘0", Other: shortcut{ui.Ctrl, ui.Key0}, Run: func(a *App) { a.setFontSize(defaultFontSize) }}
 	cmdLight       = command{Title: "Appearance: Light", Run: func(a *App) { a.setAppearance("light") }}
 	cmdDark        = command{Title: "Appearance: Dark", Run: func(a *App) { a.setAppearance("dark") }}
-	cmdSystem      = command{Title: "Appearance: System", Run: func(a *App) { a.setAppearance("") }}
+	cmdSystem      = command{Title: "Appearance: System", Run: func(a *App) { a.setAppearance("system") }}
+	cmdSettings    = command{Title: "Settings…", Accel: "CmdOrCtrl+,", Keys: "⌘,", Other: ctrlShift(ui.KeyComma), Run: func(a *App) { a.settingsOpen = true }}
 	cmdEndAll      = command{Title: "Quit and End All Sessions", Accel: "CmdOrCtrl+Alt+Q", Keys: "⌥⌘Q", Run: func(a *App) { a.quitAndEnd() }}
 )
 
@@ -64,7 +65,7 @@ var paletteCommands = []*command{
 	&cmdNextTab, &cmdPrevTab, &cmdRenameTab,
 	&cmdFocusLeft, &cmdFocusRight, &cmdFocusUp, &cmdFocusDown,
 	&cmdGrowLeft, &cmdGrowRight, &cmdGrowUp, &cmdGrowDown,
-	&cmdBigger, &cmdSmaller, &cmdActualSize, &cmdLight, &cmdDark, &cmdSystem,
+	&cmdSettings, &cmdBigger, &cmdSmaller, &cmdActualSize, &cmdLight, &cmdDark, &cmdSystem,
 	&cmdClearScroll, &cmdRestart, &cmdEndAll,
 }
 
@@ -117,7 +118,7 @@ func (s shortcut) String() string {
 		key = map[ui.Key]string{
 			ui.KeyEnter: "Enter", ui.KeyPageUp: "PageUp", ui.KeyPageDown: "PageDown",
 			ui.KeyLeft: "Left", ui.KeyRight: "Right", ui.KeyUp: "Up", ui.KeyDown: "Down",
-			ui.KeyEqual: "=", ui.KeyMinus: "-",
+			ui.KeyEqual: "=", ui.KeyMinus: "-", ui.KeyComma: ",",
 		}[k]
 	}
 	return strings.Join(append(parts, key), "+")
@@ -144,8 +145,8 @@ func (a *App) menu() *mygo.Menu {
 			},
 		})
 	}
-	appearance := func(label, v string) *mygo.MenuItem {
-		return &mygo.MenuItem{Label: label, Type: mygo.MenuItemRadio, Checked: prefs.Appearance == v, Click: func(*mygo.MenuItem, *mygo.Window) {
+	appearanceItem := func(label, v string) *mygo.MenuItem {
+		return &mygo.MenuItem{Label: label, Type: mygo.MenuItemRadio, Checked: appearance() == v, Click: func(*mygo.MenuItem, *mygo.Window) {
 			a.setAppearance(v)
 		}}
 	}
@@ -175,6 +176,8 @@ func (a *App) menu() *mygo.Menu {
 			item(&cmdClear),
 		}},
 		{Label: "View", Submenu: []*mygo.MenuItem{
+			item(&cmdSettings),
+			mygo.Separator(),
 			item(&cmdPalette),
 			item(&cmdPalette2),
 			mygo.Separator(),
@@ -188,9 +191,9 @@ func (a *App) menu() *mygo.Menu {
 			item(&cmdSmaller),
 			item(&cmdActualSize),
 			{Label: "Appearance", Submenu: []*mygo.MenuItem{
-				appearance("System", ""),
-				appearance("Light", "light"),
-				appearance("Dark", "dark"),
+				appearanceItem("System", "system"),
+				appearanceItem("Light", "light"),
+				appearanceItem("Dark", "dark"),
 			}},
 			mygo.Separator(),
 			{Role: mygo.RoleToggleFullScreen},
@@ -378,7 +381,7 @@ func (a *App) paletteItems() []paletteItem {
 			continue
 		}
 		cmd := cmd
-		items = append(items, paletteItem{title: cmd.Title, keys: cmd.Keys, glyph: "command", run: func() { cmd.Run(a) }})
+		items = append(items, paletteItem{title: cmd.Title, keys: cmd.Keys, glyph: "quickopen", run: func() { cmd.Run(a) }})
 	}
 	return items
 }
@@ -410,10 +413,10 @@ func (a *App) palette(c *ui.Context, k *colors) {
 	reveal := false
 	ui.DialogBase(c, &a.paletteOpen, func(backdrop, panel ui.Element) {
 		backdrop.Background(k.backdrop).Justify(ui.Start).Padding(78, 0, 0, 0)
-		panel.Width(560).MaxHeight(440).Radius(16).Background(k.panel).Border(1, k.panelBorder).
-			Shadow(0, 24, 60, -8, ui.RGBA(0, 0, 0, 0.28)).Shadow(0, 2, 6, 0, ui.RGBA(0, 0, 0, 0.06)).Clip()
+		panel.Width(560).MaxHeight(440).Radius(8).Background(k.panel).Border(1, k.panelBorder).
+			Shadow(0, 24, 60, -8, k.shadow).Clip()
 		ui.Row(c).Padding(12, 16).Gap(10).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(k.panelBorder).Children(func() {
-			ui.Icon(c, icon("search")).Size(17, 17).TextColor(k.textFaint)
+			ui.Icon(c, icon("edit-find")).Size(16, 16).TextColor(k.textFaint)
 			in := ui.TextInputBase(c, &a.paletteQuery).Grow(1).FontSize(15).Placeholder("Type a command, or the name of a pane…").AutoFocus()
 			if in.Changed() {
 				a.paletteSel, reveal = 0, true
@@ -435,9 +438,10 @@ func (a *App) palette(c *ui.Context, k *colors) {
 				ui.Text(c, "No matches").FontSize(13).TextColor(k.textFaint).Padding(14)
 			}
 			for i, it := range items {
-				row := ui.Row(c.Key(i)).Height(34).Padding(0, 10).Gap(10).Radius(8).AlignItems(ui.Center).Cursor(ui.CursorPointer)
-				if i == a.paletteSel {
-					row.Background(k.panelSel)
+				row := ui.Row(c.Key(i)).Height(34).Padding(0, 10).Gap(10).Radius(5).AlignItems(ui.Center).Cursor(ui.CursorPointer)
+				selected := i == a.paletteSel
+				if selected {
+					row.Background(k.selFill).Border(1, k.selEdge)
 					if reveal {
 						row.ScrollIntoView()
 					}
@@ -449,14 +453,18 @@ func (a *App) palette(c *ui.Context, k *colors) {
 					it.run()
 				}
 				row.Children(func() {
-					ui.Icon(c, icon(it.glyph)).Size(15, 15).TextColor(k.textMuted)
+					glyph := k.textMuted
+					if selected {
+						glyph = k.accent
+					}
+					ui.Icon(c, icon(it.glyph)).Size(15, 15).TextColor(glyph)
 					ui.Text(c, it.title).FontSize(13.5).FontWeight(500).TextColor(k.text).SingleLine().Ellipsis("…").Shrink(0.3).MinWidth(0)
 					if it.detail != "" {
 						ui.Text(c, it.detail).FontSize(13).TextColor(k.textFaint).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0)
 					}
 					ui.Spacer(c)
 					if it.keys != "" {
-						ui.Text(c, it.keys).FontSize(12).TextColor(k.textFaint).Padding(2, 7).Radius(6).Background(k.hover).Shrink(0)
+						ui.Text(c, it.keys).FontSize(12).TextColor(k.textFaint).Padding(2, 7).Radius(4).Border(1, k.sep).Shrink(0)
 					}
 				})
 			}

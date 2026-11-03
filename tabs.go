@@ -15,14 +15,15 @@ const (
 	tabH     = 28
 	tabMaxW  = 214
 	tabMinW  = 120
-	tileW    = 21
-	tileH    = 16
-	tileStep = 5 // how far each tile behind peeks out
+	tileW    = 18
+	tileH    = 18
+	tileStep = 4 // how far each tile behind peeks out
+	tabR     = 5 // the tabs' corners
 )
 
-// tabStrip draws the tabs, in a track as wide as they are, which shrinks
-// with them when the title bar has no room for them all. The track is part
-// of the title bar: its edges and the gaps between tabs drag the window.
+// tabStrip draws the tabs, flat on the title bar, in a row as wide as they
+// are, which shrinks with them when the title bar has no room for them all.
+// The row is part of the title bar: the gaps between tabs drag the window.
 func (a *App) tabStrip(c *ui.Context, k *colors) {
 	widths := make([]float32, len(a.tabs))
 	total := float32(4 + max(len(a.tabs)-1, 0)) // the padding and separators
@@ -30,16 +31,15 @@ func (a *App) tabStrip(c *ui.Context, k *colors) {
 		widths[i] = tabWidth(c, t)
 		total += widths[i]
 	}
-	track := ui.Row(c).Basis(total).Shrink(1).MinWidth(0).Height(tabH+4).Padding(2).Radius((tabH+4)/2).
-		Background(k.track).Border(0.5, k.trackBorder).AlignItems(ui.Center).ClipX().
-		DragWindow().Role(ui.RoleTabList).Label("Tabs")
+	track := ui.Row(c).Basis(total).Shrink(1).MinWidth(0).Height(tabH + 4).Padding(2).
+		AlignItems(ui.Center).ClipX().DragWindow().Role(ui.RoleTabList).Label("Tabs")
 	tabs := slices.Clone(a.tabs)
 	track.Children(func() {
 		for i, t := range tabs {
 			if i > 0 {
 				sep := ui.Box(c).Size(1, 16).Shrink(0)
 				if i != a.active && i-1 != a.active {
-					sep.Background(k.tabSep)
+					sep.Background(k.sep)
 				}
 			}
 			a.tabItem(c, k, i, t, widths[i])
@@ -73,11 +73,13 @@ const titleFree = 56
 func (a *App) tabItem(c *ui.Context, k *colors, i int, t *Tab, width float32) {
 	active := i == a.active
 	e := ui.Row(c.Key(t.ID)).Height(tabH).Basis(width).Shrink(1).MinWidth(64).
-		Padding(0, 10, 0, 6).Gap(9).AlignItems(ui.Center).Radius(tabH / 2).Role(ui.RoleTab).Selected(active)
+		Padding(0, 10, 0, 5).Gap(9).AlignItems(ui.Center).Radius(tabR).Role(ui.RoleTab).Selected(active)
 	name, detail := t.label()
 	e.Label(name + " " + detail)
+	// The active tab is patina's selection: a faint fill of the accent in
+	// a thin edge of it.
 	if active {
-		e.Background(k.tabActive).Shadow(0, 1, 2, 0, k.shadow).Shadow(0, 2, 8, 0, k.shadow)
+		e.Background(k.selFill).Border(1, k.selEdge)
 	} else if e.Hovered() {
 		e.Background(k.hover)
 	}
@@ -87,7 +89,7 @@ func (a *App) tabItem(c *ui.Context, k *colors, i int, t *Tab, width float32) {
 		a.moveTab(dragged, i)
 	}
 	if _, over := ui.DragOver[*Tab](e); over {
-		e.Border(1.5, k.busy.Alpha(0.6))
+		e.Border(1.5, k.accent)
 	}
 	if e.Dragging() {
 		e.Opacity(0.4)
@@ -104,7 +106,7 @@ func (a *App) tabItem(c *ui.Context, k *colors, i int, t *Tab, width float32) {
 	// shows then.
 	hovered := e.Hovered()
 	e.Children(func() {
-		a.tiles(c, k, t)
+		a.tiles(c, k, t, active)
 		if a.renaming == t {
 			a.renameField(c, t, name)
 			return
@@ -118,7 +120,7 @@ func (a *App) tabItem(c *ui.Context, k *colors, i int, t *Tab, width float32) {
 			fadeText(p, r, tabLabel(name, detail, nameColor, detailColor))
 		})
 		if hovered && len(a.tabs) > 1 {
-			x := iconButton(c, k, "x", "Close Tab", 18, 12).Tooltip("Close Tab")
+			x := iconButton(c, k, "window-close", "Close Tab", 18, 10).Tooltip("Close Tab")
 			if x.Clicked() {
 				a.later(c, func() { a.closeTab(t) })
 			}
@@ -225,8 +227,9 @@ func (a *App) tabMenu(m *ui.Menu, t *Tab) {
 }
 
 // tiles draws the tiles of a tab's programs: the focused pane's in front,
-// the others peeking out behind it.
-func (a *App) tiles(c *ui.Context, k *colors, t *Tab) {
+// the others peeking out behind it. The active tab's front tile is the
+// accent's, as the active app on patina's bar.
+func (a *App) tiles(c *ui.Context, k *colors, t *Tab, active bool) {
 	panes := t.panes()
 	front := t.Focus
 	var back []*Pane
@@ -239,15 +242,20 @@ func (a *App) tiles(c *ui.Context, k *colors, t *Tab) {
 		back = back[:2]
 	}
 	w := float32(tileW + tileStep*len(back) + 2)
-	ui.Box(c).Size(w, tileH+4).Shrink(0).Draw(func(p *ui.Painter, r ui.Rect) {
-		y := r.Y + 2
+	ui.Box(c).Size(w, tileH+2).Shrink(0).Draw(func(p *ui.Painter, r ui.Rect) {
+		y := r.Y + 1
 		for i := len(back) - 1; i >= 0; i-- {
 			x := r.X + 1 + float32(tileStep*(i+1))
-			inset := float32(i+1) * 0.8
-			drawTile(p, k, ui.Rect{X: x, Y: y + inset, W: tileW, H: tileH - 2*inset}, paneProgram(back[i]), false)
+			inset := float32(i+1) * 2
+			tile := ui.Rect{X: x, Y: y + inset, W: tileW, H: tileH - 2*inset}
+			p.Fill(tile, k.tileBack.Alpha(1-0.3*float32(i)), 4)
 		}
 		if front != nil {
-			drawTile(p, k, ui.Rect{X: r.X + 1, Y: y, W: tileW, H: tileH}, paneProgram(front), true)
+			bg, fg := k.tile, k.tileFg
+			if active {
+				bg, fg = k.accent, k.bg
+			}
+			drawTile(p, ui.Rect{X: r.X + 1, Y: y, W: tileW, H: tileH}, paneProgram(front), bg, fg)
 		}
 	})
 }
@@ -259,28 +267,16 @@ func paneProgram(p *Pane) program {
 	return programOf(p.info.Program)
 }
 
-// drawTile draws a program's tile: a rounded card of its color with a
-// light rim, and its glyph when it is in front.
-func drawTile(p *ui.Painter, k *colors, r ui.Rect, prog program, glyph bool) {
-	const rad = 4.5
-	p.Shadow(r, rad, 0, 0.5, 1.5, 0, ui.RGBA(0, 0, 0, 0.18))
-	rim := ui.Rect{X: r.X - 1, Y: r.Y - 1, W: r.W + 2, H: r.H + 2}
-	p.Fill(rim, k.tileRim, rad+1)
-	p.Fill(r, prog.TileBg, rad)
-	if prog.TileBorder {
-		p.Stroke(r, ui.RGBA(0, 0, 0, 0.12), rad, 0.5)
-	}
-	// A sheen along the top, as on the app icons of macOS.
-	p.FillGradient(r, ui.LinearGradient{From: ui.RGBA(255, 255, 255, 0.18), To: ui.RGBA(255, 255, 255, 0), Angle: 180, End: 0.6}, rad)
-	if !glyph {
-		return
-	}
+// drawTile draws a program's tile: a flat rounded square with its glyph,
+// one color on another, as patina draws every app's icon.
+func drawTile(p *ui.Painter, r ui.Rect, prog program, bg, fg ui.Color) {
+	p.Fill(r, bg, 4)
 	g := prog.TileGlyph
 	if g == "" {
 		g = prog.Glyph
 	}
-	s := float32(11)
-	p.Icon(icon(g), ui.Rect{X: r.X + (r.W-s)/2, Y: r.Y + (r.H-s)/2, W: s, H: s}, prog.TileFg)
+	s := float32(12)
+	p.Icon(icon(g), ui.Rect{X: r.X + (r.W-s)/2, Y: r.Y + (r.H-s)/2, W: s, H: s}, fg)
 }
 
 // fadeText draws spans on a line, fading the end out when they do not
