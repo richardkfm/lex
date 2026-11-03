@@ -166,9 +166,11 @@ with the other buttons; it resizes from its sides and bottom, not its top.
 ### Linux
 
 Lex runs on GTK 3 and draws with OpenGL (or on the CPU without a GPU). Panes
-run your login shell, `$SHELL`, else `/bin/sh`. The title bar keeps GTK's
-minimize, maximize and close buttons on its right, and the menus (Shell,
-Edit, View, Tabs, Window) sit above it. The host popover reads the model
+run your login shell, `$SHELL`, else `/bin/sh`. As on Windows, the window
+is frameless and its title bar draws minimize, maximize and close on its
+right, beside the other buttons. A Wayland compositor that decorates windows
+(KWin, Sway…) is told not to. The menus (Shell, Edit, View, Tabs, Window)
+sit above the title bar. The host popover reads the model
 from the firmware (`/sys/class/dmi/id`, or the device tree), and the
 processor and memory from `/proc`.
 
