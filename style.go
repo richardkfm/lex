@@ -28,9 +28,9 @@ type colors struct {
 	// of it and its thin edge.
 	accent, selFill, selEdge ui.Color
 	sep                      ui.Color
-	// tile and tileFg are the program tiles of tabs; tileBack is a tile
-	// peeking out behind.
-	tile, tileFg, tileBack ui.Color
+	// tile and tileFg face the host's glyph in its popover; tileRim rims
+	// the program tiles of tabs.
+	tile, tileFg, tileRim ui.Color
 	// switchOff is the track of a switch that is off.
 	switchOff ui.Color
 
@@ -58,9 +58,9 @@ var darkColors = colors{
 	selEdge: ui.RGBA(60, 255, 157, 0.40), // and four times as much on its edge
 	sep:     ui.RGBA(216, 212, 230, 0.12),
 
-	tile:     ui.Hex("#17141f"), // base02
-	tileFg:   ui.Hex("#d8d4e6"),
-	tileBack: ui.Hex("#524a6b"), // base03
+	tile:    ui.Hex("#17141f"), // base02
+	tileFg:  ui.Hex("#d8d4e6"),
+	tileRim: ui.RGBA(255, 255, 255, 0.22),
 
 	switchOff: ui.Hex("#17141f"), // base02
 
@@ -93,9 +93,9 @@ var lightColors = colors{
 	selEdge: ui.RGBA(7, 113, 65, 0.40),
 	sep:     ui.RGBA(42, 38, 56, 0.12),
 
-	tile:     ui.Hex("#2a2638"), // base05: dark tiles, as aurora's app glyphs
-	tileFg:   ui.Hex("#f7f6fb"),
-	tileBack: ui.Hex("#928bab"), // base03
+	tile:    ui.Hex("#2a2638"), // base05: dark tiles, as aurora's app glyphs
+	tileFg:  ui.Hex("#f7f6fb"),
+	tileRim: ui.RGBA(255, 255, 255, 0.95),
 
 	switchOff: ui.Hex("#e0dcec"), // base02
 

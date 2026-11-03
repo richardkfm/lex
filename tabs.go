@@ -15,9 +15,9 @@ const (
 	tabH     = 28
 	tabMaxW  = 214
 	tabMinW  = 120
-	tileW    = 18
-	tileH    = 18
-	tileStep = 4 // how far each tile behind peeks out
+	tileW    = 21
+	tileH    = 16
+	tileStep = 5 // how far each tile behind peeks out
 	tabR     = 5 // the tabs' corners
 )
 
@@ -106,7 +106,7 @@ func (a *App) tabItem(c *ui.Context, k *colors, i int, t *Tab, width float32) {
 	// shows then.
 	hovered := e.Hovered()
 	e.Children(func() {
-		a.tiles(c, k, t, active)
+		a.tiles(c, k, t)
 		if a.renaming == t {
 			a.renameField(c, t, name)
 			return
@@ -227,9 +227,8 @@ func (a *App) tabMenu(m *ui.Menu, t *Tab) {
 }
 
 // tiles draws the tiles of a tab's programs: the focused pane's in front,
-// the others peeking out behind it. The active tab's front tile is the
-// accent's, as the active app on patina's bar.
-func (a *App) tiles(c *ui.Context, k *colors, t *Tab, active bool) {
+// the others peeking out behind it.
+func (a *App) tiles(c *ui.Context, k *colors, t *Tab) {
 	panes := t.panes()
 	front := t.Focus
 	var back []*Pane
@@ -242,20 +241,15 @@ func (a *App) tiles(c *ui.Context, k *colors, t *Tab, active bool) {
 		back = back[:2]
 	}
 	w := float32(tileW + tileStep*len(back) + 2)
-	ui.Box(c).Size(w, tileH+2).Shrink(0).Draw(func(p *ui.Painter, r ui.Rect) {
-		y := r.Y + 1
+	ui.Box(c).Size(w, tileH+4).Shrink(0).Draw(func(p *ui.Painter, r ui.Rect) {
+		y := r.Y + 2
 		for i := len(back) - 1; i >= 0; i-- {
 			x := r.X + 1 + float32(tileStep*(i+1))
-			inset := float32(i+1) * 2
-			tile := ui.Rect{X: x, Y: y + inset, W: tileW, H: tileH - 2*inset}
-			p.Fill(tile, k.tileBack.Alpha(1-0.3*float32(i)), 4)
+			inset := float32(i+1) * 0.8
+			drawTile(p, k, ui.Rect{X: x, Y: y + inset, W: tileW, H: tileH - 2*inset}, paneProgram(back[i]), false)
 		}
 		if front != nil {
-			bg, fg := k.tile, k.tileFg
-			if active {
-				bg, fg = k.accent, k.bg
-			}
-			drawTile(p, ui.Rect{X: r.X + 1, Y: y, W: tileW, H: tileH}, paneProgram(front), bg, fg)
+			drawTile(p, k, ui.Rect{X: r.X + 1, Y: y, W: tileW, H: tileH}, paneProgram(front), true)
 		}
 	})
 }
@@ -267,16 +261,28 @@ func paneProgram(p *Pane) program {
 	return programOf(p.info.Program)
 }
 
-// drawTile draws a program's tile: a flat rounded square with its glyph,
-// one color on another, as patina draws every app's icon.
-func drawTile(p *ui.Painter, r ui.Rect, prog program, bg, fg ui.Color) {
-	p.Fill(r, bg, 4)
+// drawTile draws a program's tile: a rounded card of its color with a
+// light rim, a soft shadow and a sheen along its top, and its glyph when it
+// is in front.
+func drawTile(p *ui.Painter, k *colors, r ui.Rect, prog program, glyph bool) {
+	const rad = 4.5
+	p.Shadow(r, rad, 0, 0.5, 1.5, 0, ui.RGBA(0, 0, 0, 0.18))
+	rim := ui.Rect{X: r.X - 1, Y: r.Y - 1, W: r.W + 2, H: r.H + 2}
+	p.Fill(rim, k.tileRim, rad+1)
+	p.Fill(r, prog.TileBg, rad)
+	if prog.TileBorder {
+		p.Stroke(r, ui.RGBA(0, 0, 0, 0.12), rad, 0.5)
+	}
+	p.FillGradient(r, ui.LinearGradient{From: ui.RGBA(255, 255, 255, 0.18), To: ui.RGBA(255, 255, 255, 0), Angle: 180, End: 0.6}, rad)
+	if !glyph {
+		return
+	}
 	g := prog.TileGlyph
 	if g == "" {
 		g = prog.Glyph
 	}
-	s := float32(12)
-	p.Icon(icon(g), ui.Rect{X: r.X + (r.W-s)/2, Y: r.Y + (r.H-s)/2, W: s, H: s}, fg)
+	s := float32(11)
+	p.Icon(icon(g), ui.Rect{X: r.X + (r.W-s)/2, Y: r.Y + (r.H-s)/2, W: s, H: s}, prog.TileFg)
 }
 
 // fadeText draws spans on a line, fading the end out when they do not

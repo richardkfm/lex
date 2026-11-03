@@ -31,8 +31,8 @@ Linux and macOS.
   sight. When the window is in the background, a long command finishing
   posts a notification.
 - **Tab icons** stack the tiles of a tab's programs, the focused pane's in
-  front, as Rex does: one-color glyphs and logos on flat tiles, the active
-  tab's in the accent. Tabs reorder by dragging, rename by double-click, and
+  front, as Rex does: little rimmed cards in their programs' colors, the
+  others peeking out behind. Tabs reorder by dragging, rename by double-click, and
   have a context menu.
 - **Host chip** with the machine's name and model; its popover shows the
   chip, memory, OS and the session server.
