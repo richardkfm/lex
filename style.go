@@ -7,98 +7,100 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// colors are the app's own, in light and dark windows.
+// colors are the app's own, in light and dark windows: patina's aurora
+// theme (github.com/patina-os/patina, themes/aurora), true black with neon
+// green as the accent and violet as the second color, and its light mode
+// on lavender white. The comments name aurora's base16 slots.
 type colors struct {
-	// The window's background: a gradient from top through mid to bottom,
-	// and a tint toward the right.
-	bgTop, bgMid, bgLow, bgBottom, bgTint ui.Color
+	// bg is the window's, flat: the title bar and the gaps between panes.
+	bg ui.Color
 
-	card, cardFocused, cardBorder, cardBorderFocused ui.Color
-	shadow, shadowFocused                            ui.Color
+	// The panes: a flat card with a hairline rim, the accent's edge round
+	// the focused one.
+	card, cardBorder, cardBorderFocused ui.Color
 
 	text, textMuted, textFaint, iconMuted ui.Color
-	hover, pressed                        ui.Color
+	// hover and pressed are faces of the second color under the pointer.
+	hover, pressed ui.Color
 
-	track, trackBorder, tabActive, tabSep ui.Color
-	tileRim                               ui.Color
+	// accent marks what is chosen: the active tab, the selected row, the
+	// focused pane, the front tile. selFill and selEdge are a faint fill
+	// of it and its thin edge.
+	accent, selFill, selEdge ui.Color
+	sep                      ui.Color
+	// tile and tileFg are the program tiles of tabs; tileBack is a tile
+	// peeking out behind.
+	tile, tileFg, tileBack ui.Color
 
-	busy, attention, exited ui.Color
+	busy, attention, danger ui.Color
 
-	panel, panelBorder, panelSel, backdrop ui.Color
-}
-
-var lightColors = colors{
-	bgTop:    ui.Hex("#f6e7f6"),
-	bgMid:    ui.Hex("#efe1e6"),
-	bgLow:    ui.Hex("#eee0d3"),
-	bgBottom: ui.Hex("#ece1bd"),
-	bgTint:   ui.RGBA(242, 214, 222, 0.35),
-
-	card:              ui.RGBA(255, 255, 255, 0.66),
-	cardFocused:       ui.RGBA(255, 255, 255, 0.95),
-	cardBorder:        ui.RGBA(255, 255, 255, 0.72),
-	cardBorderFocused: ui.RGBA(255, 255, 255, 1),
-	shadow:            ui.RGBA(60, 40, 50, 0.07),
-	shadowFocused:     ui.RGBA(60, 40, 50, 0.12),
-
-	text:      ui.Hex("#1d1d1f"),
-	textMuted: ui.Hex("#636366"),
-	textFaint: ui.Hex("#8e8e93"),
-	iconMuted: ui.Hex("#8a8a8f"),
-	hover:     ui.RGBA(0, 0, 0, 0.055),
-	pressed:   ui.RGBA(0, 0, 0, 0.1),
-
-	track:       ui.RGBA(255, 255, 255, 0.34),
-	trackBorder: ui.RGBA(255, 255, 255, 0.45),
-	tabActive:   ui.RGBA(255, 255, 255, 0.97),
-	tabSep:      ui.RGBA(0, 0, 0, 0.13),
-	tileRim:     ui.RGBA(255, 255, 255, 0.95),
-
-	busy:      ui.Hex("#34a853"),
-	attention: ui.Hex("#f59e0b"),
-	exited:    ui.Hex("#a1a1a6"),
-
-	panel:       ui.RGBA(252, 252, 253, 0.97),
-	panelBorder: ui.RGBA(0, 0, 0, 0.08),
-	panelSel:    ui.RGBA(46, 111, 208, 0.12),
-	backdrop:    ui.RGBA(40, 20, 40, 0.06),
+	panel, panelBorder, shadow, backdrop ui.Color
 }
 
 var darkColors = colors{
-	bgTop:    ui.Hex("#2c2131"),
-	bgMid:    ui.Hex("#231e27"),
-	bgLow:    ui.Hex("#221f22"),
-	bgBottom: ui.Hex("#2a2619"),
-	bgTint:   ui.RGBA(80, 40, 60, 0.25),
+	bg: ui.Hex("#000000"), // base00: an OLED panel's pixels stay off
 
-	card:              ui.RGBA(20, 20, 24, 0.5),
-	cardFocused:       ui.RGBA(36, 36, 41, 0.94),
-	cardBorder:        ui.RGBA(255, 255, 255, 0.05),
-	cardBorderFocused: ui.RGBA(255, 255, 255, 0.14),
-	shadow:            ui.RGBA(0, 0, 0, 0.25),
-	shadowFocused:     ui.RGBA(0, 0, 0, 0.4),
+	card:              ui.Hex("#0b0a10"),            // base01
+	cardBorder:        ui.RGBA(216, 212, 230, 0.12), // base05 at 12 %, patina's rim
+	cardBorderFocused: ui.RGBA(60, 255, 157, 0.75),  // base0B
 
-	text:      ui.Hex("#f2f2f7"),
-	textMuted: ui.Hex("#aeaeb2"),
-	textFaint: ui.Hex("#8e8e93"),
-	iconMuted: ui.Hex("#98989d"),
-	hover:     ui.RGBA(255, 255, 255, 0.08),
-	pressed:   ui.RGBA(255, 255, 255, 0.14),
+	text:      ui.Hex("#d8d4e6"), // base05
+	textMuted: ui.Hex("#aea8c4"), // between base04 and base05
+	textFaint: ui.Hex("#8a83a3"), // base04
+	iconMuted: ui.Hex("#8a83a3"),
+	hover:     ui.RGBA(183, 125, 255, 0.12), // base0E
+	pressed:   ui.RGBA(183, 125, 255, 0.22),
 
-	track:       ui.RGBA(255, 255, 255, 0.06),
-	trackBorder: ui.RGBA(255, 255, 255, 0.06),
-	tabActive:   ui.RGBA(255, 255, 255, 0.14),
-	tabSep:      ui.RGBA(255, 255, 255, 0.14),
-	tileRim:     ui.RGBA(255, 255, 255, 0.22),
+	accent:  ui.Hex("#3cff9d"),           // base0B
+	selFill: ui.RGBA(60, 255, 157, 0.10), // patina's selection: 10 %
+	selEdge: ui.RGBA(60, 255, 157, 0.40), // and four times as much on its edge
+	sep:     ui.RGBA(216, 212, 230, 0.12),
 
-	busy:      ui.Hex("#4ade80"),
-	attention: ui.Hex("#fbbf24"),
-	exited:    ui.Hex("#636366"),
+	tile:     ui.Hex("#17141f"), // base02
+	tileFg:   ui.Hex("#d8d4e6"),
+	tileBack: ui.Hex("#524a6b"), // base03
 
-	panel:       ui.RGBA(38, 38, 42, 0.97),
-	panelBorder: ui.RGBA(255, 255, 255, 0.1),
-	panelSel:    ui.RGBA(108, 178, 255, 0.18),
-	backdrop:    ui.RGBA(0, 0, 0, 0.2),
+	busy:      ui.Hex("#3cff9d"), // base0B
+	attention: ui.Hex("#ffa45c"), // base09, kitty's bell border
+	danger:    ui.Hex("#ff5c7a"), // base08
+
+	panel:       ui.Hex("#0b0a10"),
+	panelBorder: ui.RGBA(216, 212, 230, 0.12),
+	shadow:      ui.RGBA(0, 0, 0, 0.6),
+	backdrop:    ui.RGBA(0, 0, 0, 0.45),
+}
+
+var lightColors = colors{
+	bg: ui.Hex("#eeecf5"), // base01: panels and title bars
+
+	card:              ui.Hex("#f7f6fb"),         // base00: lavender white
+	cardBorder:        ui.RGBA(42, 38, 56, 0.12), // base05 at 12 %
+	cardBorderFocused: ui.RGBA(7, 113, 65, 0.75), // base0B
+
+	text:      ui.Hex("#2a2638"), // base05
+	textMuted: ui.Hex("#4b4560"), // between base04 and base05
+	textFaint: ui.Hex("#6b6585"), // base04
+	iconMuted: ui.Hex("#6b6585"),
+	hover:     ui.RGBA(124, 58, 237, 0.08), // base0E
+	pressed:   ui.RGBA(124, 58, 237, 0.16),
+
+	accent:  ui.Hex("#077141"), // base0B
+	selFill: ui.RGBA(7, 113, 65, 0.10),
+	selEdge: ui.RGBA(7, 113, 65, 0.40),
+	sep:     ui.RGBA(42, 38, 56, 0.12),
+
+	tile:     ui.Hex("#2a2638"), // base05: dark tiles, as aurora's app glyphs
+	tileFg:   ui.Hex("#f7f6fb"),
+	tileBack: ui.Hex("#928bab"), // base03
+
+	busy:      ui.Hex("#077141"), // base0B
+	attention: ui.Hex("#b2590e"), // base09
+	danger:    ui.Hex("#d1264a"), // base08
+
+	panel:       ui.Hex("#f7f6fb"),
+	panelBorder: ui.RGBA(42, 38, 56, 0.12),
+	shadow:      ui.RGBA(13, 11, 20, 0.14),
+	backdrop:    ui.RGBA(13, 11, 20, 0.12),
 }
 
 func colorsOf(c *ui.Context) *colors {
@@ -106,17 +108,6 @@ func colorsOf(c *ui.Context) *colors {
 		return &darkColors
 	}
 	return &lightColors
-}
-
-// paintBackground paints the window's background.
-func paintBackground(p *ui.Painter, r ui.Rect, k *colors) {
-	h1, h2 := r.H*0.38, r.H*0.32
-	p.FillGradient(ui.Rect{X: r.X, Y: r.Y, W: r.W, H: h1 + 1}, ui.LinearGradient{From: k.bgTop, To: k.bgMid, Angle: 180}, 0)
-	p.FillGradient(ui.Rect{X: r.X, Y: r.Y + h1, W: r.W, H: h2 + 1}, ui.LinearGradient{From: k.bgMid, To: k.bgLow, Angle: 180}, 0)
-	p.FillGradient(ui.Rect{X: r.X, Y: r.Y + h1 + h2, W: r.W, H: r.H - h1 - h2}, ui.LinearGradient{From: k.bgLow, To: k.bgBottom, Angle: 180}, 0)
-	clear := k.bgTint
-	clear.A = 0
-	p.FillGradient(r, ui.LinearGradient{From: clear, To: k.bgTint, Angle: 90, Start: 0.35, End: 1}, 0)
 }
 
 //go:embed assets/fonts/JetBrainsMono-Regular.ttf
@@ -137,31 +128,37 @@ func registerFonts() {
 	}
 }
 
-var termFont = terminal.Font{Family: "JetBrains Mono, SF Mono, Menlo, monospace", Size: 11.6, LineHeight: 1.0}
+var termFont = terminal.Font{Family: "JetBrains Mono, monospace", Size: 11.6, LineHeight: 1.0}
 
-// The terminals' colors: soft ink on the panes' paper, and the dark kind.
-var lightTerm = &terminal.Theme{
-	Foreground: ui.Hex("#2a2d31"),
-	Background: ui.Hex("#fbfbfb"),
-	Cursor:     ui.Hex("#3a3d42"),
-	Selection:  ui.RGBA(46, 111, 208, 0.2),
+// The terminals' colors: aurora's, as patina gives them to kitty. The
+// sixteen colors are the base16 slots, the cursor and the selection the
+// accent, the selected text the background.
+var darkTerm = &terminal.Theme{
+	Foreground:    ui.Hex("#d8d4e6"),
+	Background:    ui.Hex("#0b0a10"),
+	Cursor:        ui.Hex("#3cff9d"),
+	CursorText:    ui.Hex("#000000"),
+	Selection:     ui.Hex("#3cff9d"),
+	SelectionText: ui.Hex("#000000"),
 	Palette: [16]ui.Color{
-		ui.Hex("#2a2d31"), ui.Hex("#c2465a"), ui.Hex("#4e8e5f"), ui.Hex("#b07a1e"),
-		ui.Hex("#2e6fd0"), ui.Hex("#9050c8"), ui.Hex("#1e8c9c"), ui.Hex("#8a8d93"),
-		ui.Hex("#6e7178"), ui.Hex("#d9566b"), ui.Hex("#5ba671"), ui.Hex("#c89026"),
-		ui.Hex("#4a8fe0"), ui.Hex("#a56bd8"), ui.Hex("#2ba2b3"), ui.Hex("#b5b8be"),
+		ui.Hex("#000000"), ui.Hex("#ff5c7a"), ui.Hex("#3cff9d"), ui.Hex("#f2e15c"),
+		ui.Hex("#7aa2ff"), ui.Hex("#b77dff"), ui.Hex("#4de8d4"), ui.Hex("#d8d4e6"),
+		ui.Hex("#524a6b"), ui.Hex("#ff5c7a"), ui.Hex("#3cff9d"), ui.Hex("#f2e15c"),
+		ui.Hex("#7aa2ff"), ui.Hex("#b77dff"), ui.Hex("#4de8d4"), ui.Hex("#f7f6fb"),
 	},
 }
 
-var darkTerm = &terminal.Theme{
-	Foreground: ui.Hex("#e6e6ea"),
-	Background: ui.Hex("#1e1e22"),
-	Cursor:     ui.Hex("#e6e6ea"),
-	Selection:  ui.RGBA(108, 178, 255, 0.28),
+var lightTerm = &terminal.Theme{
+	Foreground:    ui.Hex("#2a2638"),
+	Background:    ui.Hex("#f7f6fb"),
+	Cursor:        ui.Hex("#077141"),
+	CursorText:    ui.Hex("#f7f6fb"),
+	Selection:     ui.Hex("#077141"),
+	SelectionText: ui.Hex("#f7f6fb"),
 	Palette: [16]ui.Color{
-		ui.Hex("#3a3a40"), ui.Hex("#ff6b7f"), ui.Hex("#7bd88f"), ui.Hex("#e5c07b"),
-		ui.Hex("#6cb2ff"), ui.Hex("#c792ea"), ui.Hex("#56d4dd"), ui.Hex("#d0d0d6"),
-		ui.Hex("#6e6e78"), ui.Hex("#ff8c9c"), ui.Hex("#9be8a8"), ui.Hex("#f2d28a"),
-		ui.Hex("#8ec5ff"), ui.Hex("#d7a8f2"), ui.Hex("#7fe3ea"), ui.Hex("#ffffff"),
+		ui.Hex("#f7f6fb"), ui.Hex("#d1264a"), ui.Hex("#077141"), ui.Hex("#8b6e00"),
+		ui.Hex("#3559d6"), ui.Hex("#7c3aed"), ui.Hex("#0e7f75"), ui.Hex("#2a2638"),
+		ui.Hex("#928bab"), ui.Hex("#d1264a"), ui.Hex("#077141"), ui.Hex("#8b6e00"),
+		ui.Hex("#3559d6"), ui.Hex("#7c3aed"), ui.Hex("#0e7f75"), ui.Hex("#0d0b14"),
 	},
 }

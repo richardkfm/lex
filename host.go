@@ -19,16 +19,11 @@ func (a *App) hostChip(c *ui.Context, k *colors) {
 		name, _ = os.Hostname()
 		name = strings.TrimSuffix(name, ".local")
 	}
-	glyph := "mac-studio"
-	switch {
-	case strings.Contains(model, "MacBook"), h.Portable:
-		glyph = "laptop"
-	case strings.Contains(model, "iMac"), runtime.GOOS == "windows":
-		glyph = "monitor"
-	case runtime.GOOS == "linux":
-		glyph = "server"
+	glyph := "computer"
+	if h.Portable || strings.Contains(model, "MacBook") {
+		glyph = "computer-laptop"
 	}
-	chip := ui.Row(c).Gap(9).Padding(3, 8, 3, 6).Radius(9).AlignItems(ui.Center).Cursor(ui.CursorPointer).
+	chip := ui.Row(c).Gap(9).Padding(3, 8, 3, 6).Radius(buttonR).AlignItems(ui.Center).Cursor(ui.CursorPointer).
 		Role(ui.RoleButton).Label("Host " + name).MaxWidth(190).Shrink(0)
 	if chip.Hovered() || a.hostOpen {
 		chip.Background(k.hover)
@@ -37,15 +32,15 @@ func (a *App) hostChip(c *ui.Context, k *colors) {
 		a.hostOpen = !a.hostOpen
 	}
 	chip.Children(func() {
-		ui.Icon(c, icon(glyph)).Size(19, 19).TextColor(k.textMuted)
+		ui.Icon(c, icon(glyph)).Size(18, 18).TextColor(k.textMuted)
 		ui.Column(c).MinWidth(0).Children(func() {
 			ui.Text(c, name).FontSize(13.5).FontWeight(700).TextColor(k.text.Alpha(0.85)).SingleLine().Ellipsis("…")
 			ui.Text(c, model).FontSize(11.5).TextColor(k.textFaint).SingleLine().Ellipsis("…")
 		})
 	})
 	ui.PopoverBase(c, chip, &a.hostOpen, func(panel ui.Element) {
-		panel.Margin(8, 0, 0, 0).Width(300).Padding(14).Radius(14).Background(k.panel).Border(1, k.panelBorder).
-			Shadow(0, 12, 32, 0, k.shadowFocused).Gap(12)
+		panel.Margin(8, 0, 0, 0).Width(300).Padding(14).Radius(8).Background(k.panel).Border(1, k.panelBorder).
+			Shadow(0, 12, 32, 0, k.shadow).Gap(12)
 		a.hostPanel(c, k, name, glyph)
 	})
 }
@@ -53,8 +48,8 @@ func (a *App) hostChip(c *ui.Context, k *colors) {
 func (a *App) hostPanel(c *ui.Context, k *colors, name, glyph string) {
 	h := a.hello.Host
 	ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
-		ui.Box(c).Size(38, 38).Radius(10).Background(k.hover).Center().Children(func() {
-			ui.Icon(c, icon(glyph)).Size(24, 24).TextColor(k.text)
+		ui.Box(c).Size(38, 38).Radius(6).Background(k.tile).Center().Children(func() {
+			ui.Icon(c, icon(glyph)).Size(22, 22).TextColor(k.tileFg)
 		})
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
 			ui.Text(c, name).FontSize(14).FontWeight(700).TextColor(k.text).SingleLine().Ellipsis("…")

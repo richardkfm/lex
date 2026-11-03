@@ -11,10 +11,11 @@ Linux and macOS.
 
 ## What it does
 
-- **Tabs and split panes.** Every pane is a card over the window's gradient,
-  with its program's icon, name and directory in its header, and buttons to
-  split right, split down, zoom and close. Drag the gaps between panes to
-  resize them (double-click resets a split to half).
+- **Tabs and split panes.** Every pane is a flat card in a hairline rim, the
+  focused one in a green edge, with its program's icon, name and directory
+  in its header, and buttons to split right, split down, zoom and close.
+  Drag the gaps between panes to resize them (double-click resets a split
+  to half).
 - **Persistent sessions.** Shells run in a session server, a background
   process of the same binary (`Lex -server`). Quit Lex and everything
   keeps running; open it again and every tab, split and pane comes back as
@@ -30,13 +31,19 @@ Linux and macOS.
   sight. When the window is in the background, a long command finishing
   posts a notification.
 - **Tab icons** stack the tiles of a tab's programs, the focused pane's in
-  front, as Rex does. Tabs reorder by dragging, rename by double-click, and
+  front, as Rex does: one-color glyphs and logos on flat tiles, the active
+  tab's in the accent. Tabs reorder by dragging, rename by double-click, and
   have a context menu.
 - **Host chip** with the machine's name and model; its popover shows the
   chip, memory, OS and the session server.
-- **Command palette** (⇧⌘P, Ctrl+Shift+P, or the ⌘ button): every command, and every pane
+- **Command palette** (⇧⌘P, Ctrl+Shift+P, or the ⚡ button): every command, and every pane
   to jump to, fuzzy-matched.
-- Light and dark appearances (View ▸ Appearance), text size (⌘+ ⌘− ⌘0),
+- **The aurora look** of [patina](https://github.com/patina-os/patina):
+  true black with neon green as the accent and violet as the second color,
+  in the window, the panes and the terminals' sixteen colors, and
+  [Papirus](https://github.com/PapirusDevelopmentTeam/papirus-icon-theme)'s
+  icons. Dark by default; light (lavender white) or the system's in
+  View ▸ Appearance. Text size (⌘+ ⌘− ⌘0),
   JetBrains Mono embedded.
 
 ## Install
@@ -179,7 +186,7 @@ of the run ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 | `main.go` | the app, its window, and `-server` |
 | `state.go` | tabs, the tree of splits, panes, saving and restoring the layout |
 | `view.go`, `tabs.go`, `host.go`, `commands.go` | the interface: title bar, tabs, panes, host popover, menus and palette |
-| `programs.go` | how programs show: names, glyphs, tile colors |
+| `programs.go` | how programs show: names and glyphs |
 | `style.go`, `settings.go` | colors, fonts, terminal themes; appearance and text size |
 | `internal/rex` | the session server and its client: PTYs, foreground processes, headless screens, the socket protocol |
 
@@ -205,6 +212,9 @@ server listens on a local socket only.
   [golang.org/x/image](https://pkg.go.dev/golang.org/x/image) (BSD-3-Clause),
   and [go-text/typesetting](https://github.com/go-text/typesetting)
   (BSD-3-Clause or Unlicense).
-- Icons: [Lucide](https://lucide.dev) (ISC) and
+- [patina](https://github.com/patina-os/patina)'s aurora theme
+  (GPL-3.0-or-later), by the patina contributors, gives Lex its colors.
+- Icons: the [Papirus icon theme](https://github.com/PapirusDevelopmentTeam/papirus-icon-theme)
+  (GPL-3.0, `assets/icons/README.md` lists them) and
   [Simple Icons](https://simpleicons.org) (CC0). Font:
   [JetBrains Mono](https://www.jetbrains.com/lp/mono/) (OFL).

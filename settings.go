@@ -13,7 +13,8 @@ import (
 // settings are the user's choices, kept in settings.json beside the
 // server's state.
 type settings struct {
-	// Appearance is "light", "dark", or "" to follow the system.
+	// Appearance is "light", "dark", or "system" to follow the system;
+	// "dark" when empty.
 	Appearance string  `json:"appearance,omitempty"`
 	FontSize   float32 `json:"fontSize,omitempty"`
 }
@@ -41,14 +42,24 @@ func saveSettings() {
 	os.WriteFile(settingsPath(), b, 0o600)
 }
 
-func applyAppearance() {
+// appearance is the appearance chosen: dark unless the user chose
+// another, as aurora, the theme of Lex's colors, is made dark first.
+func appearance() string {
 	switch prefs.Appearance {
+	case "light", "system":
+		return prefs.Appearance
+	}
+	return "dark"
+}
+
+func applyAppearance() {
+	switch appearance() {
 	case "light":
 		mygo.Theme.SetSource(mygo.ThemeLight)
-	case "dark":
-		mygo.Theme.SetSource(mygo.ThemeDark)
-	default:
+	case "system":
 		mygo.Theme.SetSource(mygo.ThemeSystem)
+	default:
+		mygo.Theme.SetSource(mygo.ThemeDark)
 	}
 }
 
