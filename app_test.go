@@ -180,9 +180,14 @@ func TestPanesAndTabs(t *testing.T) {
 		t.Fatalf("%d tabs, active %d, after closing the last pane of a tab", len(a.tabs), a.active)
 	}
 
-	// A shell that exits closes its pane.
+	// A shell that exits closes its pane. Its prompt comes first: typed
+	// before the shell reads it (cmd under ConPTY, on a slow machine), the
+	// exit could be lost.
 	a.selectTab(0)
 	tab.setFocus(right)
+	waitFor(t, tt, "the right pane's shell", func() bool {
+		return right.term != nil && strings.Contains(right.term.Text(), testShell.prompt)
+	})
 	right.term.Send([]byte("exit\r"))
 	waitFor(t, tt, "the pane to close", func() bool { return len(tab.panes()) == 2 })
 }
