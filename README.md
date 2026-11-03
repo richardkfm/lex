@@ -176,17 +176,21 @@ processor and memory from `/proc`.
 
 ### Releasing
 
-Bump `version` in `mygo.json`, commit, and push its tag:
+Push a tag of the version, or create it with a new release on GitHub
+(*Draft a new release*, then a new tag):
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 [`.github/workflows/release.yml`](.github/workflows/release.yml) checks that
-the tag is `mygo.json`'s version, tests Lex on Linux and Windows, builds the
-Windows installer and the Linux packages on Ubuntu, and uploads them with
-`SHA256SUMS` to a draft release. Review the draft and publish it. The same
+the tag is a version (`vX.Y.Z`), tests Lex on Linux and Windows, builds the
+Windows installer and the Linux packages on Ubuntu at the tag's version, and
+uploads them with `SHA256SUMS` to the tag's release. When the tag has no
+release yet, it makes a draft: review it and publish it. Builds without a
+tag, such as pull requests and local builds, take `version` from
+`mygo.json`, so bump it now and then to keep it near the releases. The same
 build runs for every pull request, and its packages are kept as an artifact
 of the run ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 

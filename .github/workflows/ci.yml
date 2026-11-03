@@ -2,7 +2,7 @@ name: CI
 
 # Tests Lex on Linux and Windows, and builds the Windows installer and the
 # Linux packages. The release workflow calls it with release: true, which
-# uploads the packages to the draft release of the tag.
+# builds them at the tag's version and uploads them to the tag's release.
 
 on:
   push:
@@ -12,7 +12,7 @@ on:
   workflow_call:
     inputs:
       release:
-        description: Upload the packages to the draft release of the tag
+        description: Build at the tag's version and upload the packages to its release
         type: boolean
         default: false
 
@@ -43,6 +43,17 @@ jobs:
           go-version-file: go.mod
       - name: Install NSIS, for the Windows installer
         run: sudo apt-get update && sudo apt-get install -y nsis
+      # A release is the tag's version, whatever mygo.json says, so that a
+      # tag made with a release on GitHub needs no commit of its own.
+      - name: Take the version from the tag
+        if: inputs.release
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [ "$(jq -r .version mygo.json)" != "$version" ]; then
+            echo "::notice::mygo.json says $(jq -r .version mygo.json): building $version, the tag's version"
+          fi
+          jq --arg v "$version" '.version = $v' mygo.json > mygo.json.new
+          mv mygo.json.new mygo.json
       - name: Build
         run: go tool mygo build -platform windows/amd64,linux/amd64
       - name: Collect the packages
