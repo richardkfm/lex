@@ -1,7 +1,7 @@
 {
   "name": "Lex",
   "identifier": "io.github.richardkfm.lex",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "copyright": "Lex, forked from GoRex by EGOIST, after Superlogical's Rex",
   "out": "build",
   "macos": { "minimumSystemVersion": "13.0" },
