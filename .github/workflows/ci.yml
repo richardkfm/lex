@@ -63,7 +63,7 @@ jobs:
         run: |
           version="$(jq -r .version mygo.json)"
           mkdir dist
-          cp "build/windows-amd64/Lex Setup $version.exe" "dist/Lex-Setup-$version-windows-amd64.exe"
+          cp "build/windows-amd64/lex-setup-$version-amd64.exe" "dist/Lex-Setup-$version-windows-amd64.exe"
           cp "build/linux-amd64/lex_${version}_amd64.deb" \
              "build/linux-amd64/lex-$version-linux-amd64.tar.gz" \
              build/linux-amd64/install.sh \
