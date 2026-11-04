@@ -137,7 +137,8 @@ func newSession(id string, o CreateOptions) (*session, error) {
 }
 
 // sessionEnv returns the environment of a session's shell: the server's,
-// without what other terminals set, and what terminal apps set.
+// without what other terminals and an AppImage set, and what terminal
+// apps set.
 func sessionEnv(id string, extra []string) []string {
 	var env []string
 	hasLang := false
@@ -149,7 +150,8 @@ func sessionEnv(id string, extra []string) []string {
 			k == "COLUMNS", k == "LINES", k == "SHLVL", k == "OLDPWD", k == "PWD", k == "_",
 			strings.HasPrefix(k, "ITERM_"), strings.HasPrefix(k, "GHOSTTY_"), strings.HasPrefix(k, "KITTY_"),
 			strings.HasPrefix(k, "VSCODE_"), strings.HasPrefix(k, "WEZTERM_"), strings.HasPrefix(k, "ALACRITTY_"),
-			strings.HasPrefix(k, "LEX_"), strings.HasPrefix(k, "GOREX_"), strings.HasPrefix(k, "MYGO_"):
+			strings.HasPrefix(k, "LEX_"), strings.HasPrefix(k, "GOREX_"), strings.HasPrefix(k, "MYGO_"),
+			appImageEnv(k):
 			continue
 		case k == "LANG" || k == "LC_ALL" || k == "LC_CTYPE":
 			hasLang = true

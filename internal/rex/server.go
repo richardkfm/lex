@@ -313,11 +313,15 @@ func newID() string {
 }
 
 // Spawn starts a server in the background, as a process of its own that
-// outlives the app: the executable run with -server.
+// outlives the app: the executable run with -server, or the AppImage,
+// whose mount ends with the app's process.
 func Spawn() error {
-	exe, err := os.Executable()
-	if err != nil {
-		return err
+	exe := appImage()
+	if exe == "" {
+		var err error
+		if exe, err = os.Executable(); err != nil {
+			return err
+		}
 	}
 	if err := os.MkdirAll(Dir(), 0o700); err != nil {
 		return err
