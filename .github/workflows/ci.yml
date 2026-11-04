@@ -1,8 +1,9 @@
 name: CI
 
-# Tests Lex on Linux and Windows, and builds the Windows installer and the
-# Linux packages. The release workflow calls it with release: true, which
-# builds them at the tag's version and uploads them to the tag's release.
+# Tests Lex on Linux and Windows, and builds the Windows installer, the
+# Linux packages and the AppImage. The release workflow calls it with
+# release: true, which builds them at the tag's version and uploads them
+# to the tag's release.
 
 on:
   push:
@@ -41,8 +42,8 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - name: Install NSIS, for the Windows installer
-        run: sudo apt-get update && sudo apt-get install -y nsis
+      - name: Install NSIS, for the Windows installer, and zsync, for the AppImage's updates
+        run: sudo apt-get update && sudo apt-get install -y nsis zsync
       # A release is the tag's version, whatever mygo.json says, so that a
       # tag made with a release on GitHub needs no commit of its own.
       - name: Take the version from the tag
@@ -56,6 +57,8 @@ jobs:
           mv mygo.json.new mygo.json
       - name: Build
         run: go tool mygo build -platform windows/amd64,linux/amd64
+      - name: Pack the AppImage
+        run: sh tools/appimage.sh
       - name: Collect the packages
         run: |
           version="$(jq -r .version mygo.json)"
@@ -63,7 +66,9 @@ jobs:
           cp "build/windows-amd64/Lex Setup $version.exe" "dist/Lex-Setup-$version-windows-amd64.exe"
           cp "build/linux-amd64/lex_${version}_amd64.deb" \
              "build/linux-amd64/lex-$version-linux-amd64.tar.gz" \
-             build/linux-amd64/install.sh dist/
+             build/linux-amd64/install.sh \
+             "build/linux-amd64/Lex-$version-x86_64.AppImage" \
+             "build/linux-amd64/Lex-$version-x86_64.AppImage.zsync" dist/
           (cd dist && sha256sum * > SHA256SUMS)
           cat dist/SHA256SUMS
       - uses: actions/upload-artifact@v7

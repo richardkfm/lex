@@ -9,6 +9,7 @@ palette (Ctrl+Shift+P), because the session server keeps `Lex.exe` in use.
 
 - Debian or Ubuntu: `sudo apt install ./lex_<version>_amd64.deb`
 - Any distribution, without root: `sh install.sh lex-<version>-linux-amd64.tar.gz`
+- Any distribution, without installing: `chmod +x Lex-<version>-x86_64.AppImage`, then run it
 
 `SHA256SUMS` lists the checksums of the files.
 

@@ -51,14 +51,17 @@ func Connect() (*Client, error) {
 }
 
 // Executable returns the path of the running executable and when it was
-// modified last.
+// modified last: the AppImage's, when one runs it.
 func Executable() (string, time.Time) {
-	exe, err := os.Executable()
-	if err != nil {
-		return "", time.Time{}
-	}
-	if p, err := filepath.EvalSymlinks(exe); err == nil {
-		exe = p
+	exe := appImage()
+	if exe == "" {
+		var err error
+		if exe, err = os.Executable(); err != nil {
+			return "", time.Time{}
+		}
+		if p, err := filepath.EvalSymlinks(exe); err == nil {
+			exe = p
+		}
 	}
 	st, err := os.Stat(exe)
 	if err != nil {

@@ -54,8 +54,8 @@ Linux and macOS.
 
 ## Install
 
-Every release has a Windows installer and Linux packages for x86-64
-(amd64). Download them from the release page, or with the
+Every release has a Windows installer, and Linux packages and an AppImage,
+for x86-64 (amd64). Download them from the release page, or with the
 [GitHub CLI](https://cli.github.com):
 
 ```sh
@@ -93,9 +93,26 @@ sh install.sh lex-<version>-linux-amd64.tar.gz
 ```
 
 `sh install.sh --uninstall` removes Lex again, and keeps its settings and
-sessions. `SHA256SUMS` lists the checksums of the files. Neither method adds
-a `lex` command, because `/usr/bin/lex` belongs to flex's `lex`. Start Lex
-from the applications menu, or run `/opt/lex/lex`.
+sessions. Neither method adds a `lex` command, because `/usr/bin/lex`
+belongs to flex's `lex`. Start Lex from the applications menu, or run
+`/opt/lex/lex`.
+
+Or run the AppImage, one file that needs no installing, on any
+distribution:
+
+```sh
+chmod +x Lex-<version>-x86_64.AppImage
+./Lex-<version>-x86_64.AppImage
+```
+
+It uses the system's GTK and graphics drivers, as the packages do, and
+FUSE to mount itself (`fusermount`, from the `fuse` or `fuse3` package,
+which most desktops have). It adds no menu entry by itself: Gear Lever or
+AppImageLauncher integrate it, and update it from the `.zsync` of the
+latest release. The session server runs from the AppImage too, so keep the
+file in one place: replacing it with a new version, or running another
+copy, ends the sessions of the one before, as installing a new version
+does. `SHA256SUMS` lists the checksums of the files.
 
 ## Shortcuts
 
@@ -133,10 +150,15 @@ go tool mygo dev     # Lex Dev, rebuilt and restarted as the code changes
 go test ./...        # the server, and the view without a window
 go tool mygo build   # build/<os>-<arch>/: the app and its packages
 go run ./tools/mkicon  # redraw resources/icon.png
+sh tools/appimage.sh   # pack the Linux build as an AppImage
 ```
 
 `go tool mygo build -platform windows/amd64,linux/amd64` builds the Windows
-installer and the Linux packages on any machine, without cgo. The Windows
+installer and the Linux packages on any machine, without cgo.
+`tools/appimage.sh` then packs `build/linux-amd64` as an AppImage on an
+x86-64 Linux machine, with appimagetool and the AppImage runtime at the
+versions and checksums it pins, and its `.zsync` when `zsyncmake` is
+installed (`apt install zsync`). The Windows
 installer needs [NSIS](https://nsis.sourceforge.io) (`apt install nsis`,
 `brew install makensis`) off Windows.
 
@@ -186,8 +208,8 @@ git push origin v0.2.0
 
 [`.github/workflows/release.yml`](.github/workflows/release.yml) checks that
 the tag is a version (`vX.Y.Z`), tests Lex on Linux and Windows, builds the
-Windows installer and the Linux packages on Ubuntu at the tag's version, and
-uploads them with `SHA256SUMS` to the tag's release. When the tag has no
+Windows installer, the Linux packages and the AppImage on Ubuntu at the
+tag's version, and uploads them with `SHA256SUMS` to the tag's release. When the tag has no
 release yet, it makes a draft: review it and publish it. Builds without a
 tag, such as pull requests and local builds, take `version` from
 `mygo.json`, so bump it now and then to keep it near the releases. The same
