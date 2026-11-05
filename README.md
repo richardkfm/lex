@@ -193,11 +193,13 @@ with the other buttons; it resizes from its sides and bottom, not its top.
 ### Linux
 
 Lex runs on GTK 3 and draws with OpenGL (or on the CPU without a GPU). Panes
-run your login shell, `$SHELL`, else `/bin/sh`. As on Windows, the window
+run your login shell, `$SHELL`, else `/bin/sh`; fish starts without its
+greeting, which some distributions make a system summary (CachyOS runs
+fastfetch). As on Windows, the window
 is frameless and its title bar draws minimize, maximize and close on its
 right, beside the other buttons. A Wayland compositor that decorates windows
-(KWin, Sway…) is told not to. The menus (Shell, Edit, View, Tabs, Window)
-sit above the title bar. The host popover reads the model
+(KWin, Sway…) is told not to. There is no menu bar: the command palette
+(Ctrl+Shift+P) and the shortcuts run every command. The host popover reads the model
 from the firmware (`/sys/class/dmi/id`, or the device tree), and the
 processor and memory from `/proc`.
 

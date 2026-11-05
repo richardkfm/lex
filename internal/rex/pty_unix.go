@@ -126,7 +126,15 @@ func shellCommand(cmd []string) (path string, argv []string, name string, err er
 			sh = defaultShell
 		}
 		// A login shell, as terminal apps start it: "-zsh".
-		return sh, []string{"-" + filepath.Base(sh)}, filepath.Base(sh), nil
+		name := filepath.Base(sh)
+		argv := []string{"-" + name}
+		if name == "fish" {
+			// Without fish's greeting, which distributions make a
+			// system summary (CachyOS: fastfetch). -C runs after the
+			// configuration, which defines it.
+			argv = append(argv, "-C", "function fish_greeting; end")
+		}
+		return sh, argv, name, nil
 	}
 	path, err = exec.LookPath(cmd[0])
 	if err != nil {
