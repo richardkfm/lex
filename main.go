@@ -47,6 +47,7 @@ func main() {
 			os.Setenv("LEX_DIR", dir)
 		}
 	}
+	setProgramName()
 	registerFonts()
 	loadSettings()
 	a := &App{}
