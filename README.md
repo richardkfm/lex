@@ -129,7 +129,12 @@ does. `SHA256SUMS` lists the checksums of the files.
 | Ctrl+Shift+P | Command palette |
 | Ctrl+Shift+K | Clear |
 | Ctrl+Shift+, | Settings |
-| Ctrl+= Ctrl+- Ctrl+0 | Text size |
+| Ctrl+= Ctrl+- Ctrl+0 | Text size of every pane, kept in the settings |
+| Ctrl+wheel | Text size of the pane under the pointer, until Lex restarts |
+
+Ctrl+wheel zooms one pane for a while: changing the text size with
+Ctrl+= Ctrl+- Ctrl+0, or any setting, sets every pane back to the
+settings' size.
 
 Close Tab, Equalize Panes and Quit and End All Sessions are in the command
 palette. Control and a letter are the terminal's (Ctrl+C, Ctrl+D,
@@ -142,7 +147,7 @@ list them all.
 
 ## Develop and build
 
-Lex needs [Go](https://go.dev/dl/) 1.27+ and MyGo 0.3.0, whose CLI
+Lex needs [Go](https://go.dev/dl/) 1.27+ and MyGo 0.7, whose CLI
 `go.mod` pins as a tool:
 
 ```sh
