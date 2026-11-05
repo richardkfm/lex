@@ -124,6 +124,11 @@ func (s shortcut) String() string {
 	return strings.Join(append(parts, key), "+")
 }
 
+// menuBar tells whether Lex sets its menus. On Linux the menu bar would
+// sit above the title bar, so Lex has none there: the command palette and
+// the shortcuts (shortcuts) run the commands.
+var menuBar = runtime.GOOS != "linux"
+
 // menu builds the menu bar, whose items run commands in the window.
 func (a *App) menu() *mygo.Menu {
 	item := func(cmd *command) *mygo.MenuItem {
@@ -322,8 +327,9 @@ func (a *App) openPalette() {
 }
 
 // shortcuts handles the keys the menus do not: Control-Tab between tabs,
-// and on Windows, where windows of native UI run no menu shortcuts, those
-// of the commands. The window's shortcuts come before the terminal's keys.
+// and elsewhere than on macOS those of the commands: on Windows, windows of
+// native UI run no menu shortcuts, and on Linux there is no menu bar. The
+// window's shortcuts come before the terminal's keys.
 func (a *App) shortcuts(c *ui.Context) {
 	if c.Shortcut(ui.Ctrl, ui.KeyTab) {
 		a.cycleTab(1)
@@ -331,7 +337,7 @@ func (a *App) shortcuts(c *ui.Context) {
 	if c.Shortcut(ui.Ctrl|ui.Shift, ui.KeyTab) {
 		a.cycleTab(-1)
 	}
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS == "darwin" {
 		return
 	}
 	for _, cmd := range commands {

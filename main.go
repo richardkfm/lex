@@ -50,7 +50,11 @@ func main() {
 	registerFonts()
 	loadSettings()
 	a := &App{}
-	mygo.App.SetMenu(a.menu())
+	if menuBar {
+		mygo.App.SetMenu(a.menu())
+	} else {
+		mygo.App.SetMenu(nil) // and not MyGo's default menu either
+	}
 	mygo.App.WhenReady(a.open)
 	mygo.App.OnActivate(func(hasVisibleWindows bool) {
 		if !hasVisibleWindows && a.win == nil {
