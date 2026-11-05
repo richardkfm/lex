@@ -52,22 +52,31 @@ var (
 	cmdBigger      = command{Title: "Bigger Text", Accel: "CmdOrCtrl+=", Keys: "⌘+", Other: shortcut{ui.Ctrl, ui.KeyEqual}, Run: func(a *App) { a.setFontSize(termFont.Size + 1) }}
 	cmdSmaller     = command{Title: "Smaller Text", Accel: "CmdOrCtrl+-", Keys: "⌘−", Other: shortcut{ui.Ctrl, ui.KeyMinus}, Run: func(a *App) { a.setFontSize(termFont.Size - 1) }}
 	cmdActualSize  = command{Title: "Actual Size", Accel: "CmdOrCtrl+0", Keys: "⌘0", Other: shortcut{ui.Ctrl, ui.Key0}, Run: func(a *App) { a.setFontSize(defaultFontSize) }}
-	cmdLight       = command{Title: "Appearance: Light", Run: func(a *App) { a.setAppearance("light") }}
-	cmdDark        = command{Title: "Appearance: Dark", Run: func(a *App) { a.setAppearance("dark") }}
-	cmdSystem      = command{Title: "Appearance: System", Run: func(a *App) { a.setAppearance("system") }}
+	cmdFollow      = command{Title: "Theme: Match System Appearance", Run: func(a *App) { a.toggleFollowSystem(mygo.Theme.IsDark()) }}
 	cmdSettings    = command{Title: "Settings…", Accel: "CmdOrCtrl+,", Keys: "⌘,", Other: ctrlShift(ui.KeyComma), Run: func(a *App) { a.settingsOpen = true }}
 	cmdEndAll      = command{Title: "Quit and End All Sessions", Accel: "CmdOrCtrl+Alt+Q", Keys: "⌥⌘Q", Run: func(a *App) { a.quitAndEnd() }}
 )
 
-// paletteCommands are those the command palette lists, before the tabs.
-var paletteCommands = []*command{
+// paletteCommands are those the command palette lists, before the tabs:
+// the themes last.
+var paletteCommands = append([]*command{
 	&cmdNewTab, &cmdSplitRight, &cmdSplitDown, &cmdZoom, &cmdEqualize, &cmdClosePane, &cmdCloseTab,
 	&cmdNextTab, &cmdPrevTab, &cmdRenameTab,
 	&cmdFocusLeft, &cmdFocusRight, &cmdFocusUp, &cmdFocusDown,
 	&cmdGrowLeft, &cmdGrowRight, &cmdGrowUp, &cmdGrowDown,
-	&cmdSettings, &cmdBigger, &cmdSmaller, &cmdActualSize, &cmdLight, &cmdDark, &cmdSystem,
+	&cmdSettings, &cmdBigger, &cmdSmaller, &cmdActualSize,
 	&cmdClearScroll, &cmdRestart, &cmdEndAll,
-}
+}, themeCommands...)
+
+// themeCommands choose each theme, as its card in the settings does,
+// and the palette lists them after the others.
+var themeCommands = func() []*command {
+	var cmds []*command
+	for _, t := range themes {
+		cmds = append(cmds, &command{Title: "Theme: " + t.name, Run: func(a *App) { a.pickTheme(t) }})
+	}
+	return append(cmds, &cmdFollow)
+}()
 
 // commands are all of them.
 var commands = append(slices.Clone(paletteCommands), &cmdPalette, &cmdPalette2, &cmdClear)
@@ -145,10 +154,15 @@ func (a *App) menu() *mygo.Menu {
 			},
 		})
 	}
-	appearanceItem := func(label, v string) *mygo.MenuItem {
-		return &mygo.MenuItem{Label: label, Type: mygo.MenuItemRadio, Checked: appearance() == v, Click: func(*mygo.MenuItem, *mygo.Window) {
-			a.setAppearance(v)
-		}}
+	themeItems := []*mygo.MenuItem{{Label: "Match System Appearance", Type: mygo.MenuItemCheckbox, Checked: prefs.FollowSystem,
+		Click: func(*mygo.MenuItem, *mygo.Window) {
+			a.do(func() { a.toggleFollowSystem(mygo.Theme.IsDark()) })
+		}}, mygo.Separator()}
+	for _, t := range themes {
+		themeItems = append(themeItems, &mygo.MenuItem{Label: t.name, Type: mygo.MenuItemRadio, Checked: prefs.themeFor(t.dark) == t,
+			Click: func(*mygo.MenuItem, *mygo.Window) {
+				a.do(func() { a.pickTheme(t) })
+			}})
 	}
 	return mygo.NewMenu([]*mygo.MenuItem{
 		{Role: mygo.RoleAppMenu},
@@ -190,11 +204,7 @@ func (a *App) menu() *mygo.Menu {
 			item(&cmdBigger),
 			item(&cmdSmaller),
 			item(&cmdActualSize),
-			{Label: "Appearance", Submenu: []*mygo.MenuItem{
-				appearanceItem("System", "system"),
-				appearanceItem("Light", "light"),
-				appearanceItem("Dark", "dark"),
-			}},
+			{Label: "Theme", Submenu: themeItems},
 			mygo.Separator(),
 			{Role: mygo.RoleToggleFullScreen},
 			{Role: mygo.RoleToggleDevTools, Label: "Inspector", Hidden: !mygo.IsDev()},

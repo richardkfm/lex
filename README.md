@@ -38,19 +38,32 @@ Linux and macOS.
   chip, memory, OS and the session server.
 - **Command palette** (Ctrl+Shift+P, or the ⚡ button): every command, and
   every pane to jump to, fuzzy-matched.
-- **The aurora look** of [patina](https://github.com/patina-os/patina):
-  true black with neon green as the accent and violet as the second color,
-  in the window, the panes and the terminals' sixteen colors; KDE's thin
-  Breeze icons on the buttons and
+- **Six themes**, each coloring the window, the panes and the terminals'
+  sixteen colors: **Aurora**, the look of
+  [patina](https://github.com/patina-os/patina), true black with neon
+  green as the accent and violet as the second color, and **Aurora
+  Light** on lavender white; **Ember**, warm amber on charcoal;
+  **Tidepool**, aqua on deep ink; **Orchid**, soft rose and lilac; and
+  **Paper**, ink on warm paper. Pick one, or match the system's
+  appearance with a dark theme and a light one. The theme cards are in
+  the settings, and every theme is in the command palette and the View ▸
+  Theme menu. KDE's thin Breeze icons on the buttons and
   [Papirus](https://github.com/PapirusDevelopmentTeam/papirus-icon-theme)'s
-  glyphs for programs. Dark by default; light (lavender white) or the
-  system's.
-  JetBrains Mono embedded.
+  glyphs for programs.
+- **A background image** of your own, chosen with the system's file
+  dialog, behind the title bar and the panes, which turn translucent
+  over it: fill, fit, tile or center it, and set the panes' opacity, how
+  much it is dimmed (faded in a light theme) and blurred. Lex keeps its
+  path.
+- **Fonts**: JetBrains Mono embedded for the terminals, or any of the
+  system's monospaced fonts (or all of them, on asking), searchable; the
+  rest of the window in the system's font or another.
 - **Settings** behind the gear of the title bar (Ctrl+Shift+, or
-  View ▸ Settings…): appearance, text size (Ctrl+= Ctrl+- Ctrl+0), line spacing, the
-  cursor's shape and blinking, ligatures, and the notification of a long
-  command finishing in the background. They show in every pane at once
-  and are kept in `settings.json`, in the data directory.
+  View ▸ Settings…), in three sections: Look (theme and background),
+  Text (fonts, text size (Ctrl+= Ctrl+- Ctrl+0), line spacing, the
+  cursor's shape and blinking, ligatures), and General (the notification
+  of a long command finishing in the background). They show in every
+  pane at once and are kept in `settings.json`, in the data directory.
 
 ## Install
 

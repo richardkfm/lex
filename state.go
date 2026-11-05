@@ -110,6 +110,28 @@ type App struct {
 	posted []func()
 	// services keeps redraw requests available to menu callbacks.
 	services ui.Services
+
+	// The settings panel's section ("look", "text" or "general"), the
+	// font list open in it ("term" or "ui"), what it searches, and
+	// whether it lists proportional fonts for the terminals; fonts are
+	// the system's families, once asked for.
+	settingsTab string
+	fontOpen    string
+	fontQuery   string
+	fontAll     bool
+	fonts       []ui.FontFamily
+	fontsAsked  bool
+
+	// The background image (background.go): bg is the one drawn, bgKey
+	// the picture and blur last asked for, bgGen counts the askings, and
+	// bgSrc is the picture last decoded. bgShown tells that the frame
+	// draws one, so that the panes are translucent.
+	bg      *backdrop
+	bgKey   string
+	bgGen   atomic.Int64
+	bgMu    sync.Mutex
+	bgSrc   *bgSource
+	bgShown bool
 }
 
 func (a *App) post(fn func()) {
@@ -195,7 +217,8 @@ func (a *App) newPane(dir string, cols, rows int) *Pane {
 // attach makes the pane's terminal, attached to its session.
 func (a *App) attach(p *Pane, cols, rows int) {
 	if p.SID == "" {
-		term, err := terminal.New(terminal.Options{Conn: nopConn{}, Transparent: true, Font: termFont, Theme: lightTerm, DarkTheme: darkTerm,
+		light, dark := termThemes()
+		term, err := terminal.New(terminal.Options{Conn: nopConn{}, Transparent: true, Font: termFont, Theme: light, DarkTheme: dark,
 			Cursor: prefs.cursorStyle(), NoBlink: prefs.NoBlink})
 		if err == nil {
 			term.Feed([]byte("\x1b[31mCould not start a session: " + a.err + "\x1b[0m\r\n"))
@@ -215,11 +238,12 @@ func (a *App) attach(p *Pane, cols, rows int) {
 			a.post(fn)
 		}
 	}
+	light, dark := termThemes()
 	term, err := terminal.New(terminal.Options{
 		Conn:        p.stream,
 		Font:        termFont,
-		Theme:       lightTerm,
-		DarkTheme:   darkTerm,
+		Theme:       light,
+		DarkTheme:   dark,
 		Transparent: true,
 		Cursor:      prefs.cursorStyle(),
 		NoBlink:     prefs.NoBlink,

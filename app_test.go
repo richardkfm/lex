@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
 	"lex/internal/rex"
@@ -69,6 +70,8 @@ func newTestApp(t *testing.T) (*App, *ui.Tester) {
 		os.RemoveAll(dir)
 	})
 	registerFonts()
+	// No app runs to take the appearance.
+	setThemeSource = func(mygo.ThemeSource) {}
 	a := &App{client: client}
 	a.newTab(os.TempDir())
 	tt := ui.NewTester(a.view, 1000, 620)
@@ -370,12 +373,14 @@ func TestSettingsPanel(t *testing.T) {
 	if !a.settingsOpen {
 		t.Fatal("the gear did not open the settings")
 	}
+	click("Text")
 	click("Bar")
 	click("Relaxed")
 	click("Ligatures")
-	click("Done notifications")
 	click("Blinking cursor")
 	click("Bigger Text")
+	click("General")
+	click("Done notifications")
 	want := settings{FontSize: defaultFontSize + 1, LineHeight: 1.2, Cursor: "bar", NoBlink: true, NoLigatures: true, NoNotify: true}
 	if prefs != want {
 		t.Fatalf("settings after the clicks: %+v, want %+v", prefs, want)
@@ -395,6 +400,7 @@ func TestSettingsPanel(t *testing.T) {
 	if got := string(prefs.cursorSequence()); got != "\x1b[6 q" {
 		t.Errorf("the sequence of a steady bar is %q", got)
 	}
+	click("Text")
 	click("Reset")
 	if prefs.FontSize != defaultFontSize {
 		t.Errorf("Reset left the text size at %v", prefs.FontSize)
