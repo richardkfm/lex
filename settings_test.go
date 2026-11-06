@@ -273,3 +273,20 @@ func clicker(t *testing.T, tt *ui.Tester) func(string) {
 		tt.Frame()
 	}
 }
+
+// TestOverImage backs the panes and the title bar with their colors,
+// translucent as the settings ask while a background image shows.
+func TestOverImage(t *testing.T) {
+	saved := prefs
+	t.Cleanup(func() { prefs = saved })
+	prefs = settings{PaneOpacity: 0.6}
+	k := themeColors["paper"]
+	a := &App{}
+	if got := a.overImage(k.bg); got != k.bg {
+		t.Errorf("without an image the title bar's face is %v, not %v", got, k.bg)
+	}
+	a.bgShown = true
+	if got := a.overImage(k.bg); got.A != 153 || got.R != k.bg.R {
+		t.Errorf("over an image the title bar's face is %v", got)
+	}
+}

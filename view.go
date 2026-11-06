@@ -70,6 +70,15 @@ func (a *App) view(c *ui.Context) {
 	}
 }
 
+// overImage returns a face of color col, translucent as the panes are
+// over the background image when the window shows one.
+func (a *App) overImage(col ui.Color) ui.Color {
+	if a.bgShown {
+		return col.Alpha(prefs.paneOpacity())
+	}
+	return col
+}
+
 // uiTheme gives MyGo's own widgets, as the settings' sliders and the
 // inputs, the theme's accent and text, and the window's text the font the
 // settings chose.
@@ -104,7 +113,14 @@ func (a *App) titleBar(c *ui.Context, k *colors) {
 	} else {
 		left += 14
 	}
-	ui.Row(c).Height(titleH).Padding(0, max(bar.Right, 10), 0, left).Gap(14).AlignItems(ui.Center).DragWindow().Children(func() {
+	row := ui.Row(c).Height(titleH).Padding(0, max(bar.Right, 10), 0, left).Gap(14).AlignItems(ui.Center).DragWindow()
+	// Over a background image, the title bar is backed by the window's
+	// color as translucent as the panes, so that its text and buttons
+	// stay readable on a picture of the other lightness.
+	if a.bgShown {
+		row.Background(a.overImage(k.bg))
+	}
+	row.Children(func() {
 		a.hostChip(c, k)
 		a.tabStrip(c, k)
 		// The title bar between the tabs and the buttons, which drags the
@@ -277,11 +293,7 @@ func (a *App) paneCard(c *ui.Context, k *colors, t *Tab, p *Pane) ui.Element {
 	if focused {
 		border = k.cardBorderFocused
 	}
-	face := k.card
-	if a.bgShown {
-		face = face.Alpha(prefs.paneOpacity())
-	}
-	card.Background(face).Border(1, border)
+	card.Background(a.overImage(k.card)).Border(1, border)
 	card.Transition(ui.ElementTransition{Colors: true, Duration: 160 * time.Millisecond})
 	hovered := card.Hovered()
 	card.Children(func() {
