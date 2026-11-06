@@ -293,11 +293,24 @@ func (a *App) paneCard(c *ui.Context, k *colors, t *Tab, p *Pane) ui.Element {
 	if focused {
 		border = k.cardBorderFocused
 	}
-	card.Background(a.overImage(k.card)).Border(1, border)
+	// A pane of a kind to keep in mind takes its tint in its rim, and as
+	// the settings ask, in its header and over its face.
+	tn := paneTint(k, p.info)
+	face := k.card
+	if tn.on {
+		border = tn.col.Alpha(0.5)
+		if focused {
+			border = tn.col.Alpha(0.85)
+		}
+		if tn.wash {
+			face = mixColor(face, tn.col, map[bool]float32{true: 0.06, false: 0.05}[c.Theme().Dark])
+		}
+	}
+	card.Background(a.overImage(face)).Border(1, border)
 	card.Transition(ui.ElementTransition{Colors: true, Duration: 160 * time.Millisecond})
 	hovered := card.Hovered()
 	card.Children(func() {
-		a.paneHeader(c, k, t, p, focused, hovered)
+		a.paneHeader(c, k, t, p, focused, hovered, tn)
 		body := ui.Box(c).Grow(1).MinHeight(0).Padding(0, 5, 6, 5)
 		body.Children(func() {
 			if p.term == nil {
@@ -327,13 +340,18 @@ func (a *App) paneCard(c *ui.Context, k *colors, t *Tab, p *Pane) ui.Element {
 
 // paneHeader draws a pane's program, title and directory, its activity,
 // and its buttons.
-func (a *App) paneHeader(c *ui.Context, k *colors, t *Tab, p *Pane, focused, hovered bool) {
+func (a *App) paneHeader(c *ui.Context, k *colors, t *Tab, p *Pane, focused, hovered bool, tn tint) {
 	name, detail := p.label()
 	prog := programOf(p.info.Program)
 	if p.info.Idle || p.info.Program == "" {
 		prog = programOf(p.info.Shell)
 	}
 	h := ui.Row(c).Height(headerH).Padding(0, 8, 0, 12).Gap(7).AlignItems(ui.Center).MinWidth(0)
+	if tn.header {
+		h.Background(tn.col.Alpha(map[bool]float32{true: 0.12, false: 0.10}[c.Theme().Dark]))
+		line := tn.col.Alpha(0.25)
+		h.Draw(func(p *ui.Painter, r ui.Rect) { p.Fill(ui.Rect{X: r.X, Y: r.Y + r.H - 1, W: r.W, H: 1}, line, 0) })
+	}
 	if h.DoubleClicked() {
 		t.setFocus(p)
 		a.toggleZoom()
@@ -355,6 +373,9 @@ func (a *App) paneHeader(c *ui.Context, k *colors, t *Tab, p *Pane, focused, hov
 			}
 			a.activityBadge(c, k, p)
 		})
+		if tn.header {
+			tintChip(c, k, tn)
+		}
 		show := focused || hovered
 		ui.Row(c).Gap(1).AlignItems(ui.Center).Opacity(map[bool]float32{true: 1, false: 0}[show]).Children(func() {
 			if !show {
@@ -380,6 +401,16 @@ func (a *App) paneHeader(c *ui.Context, k *colors, t *Tab, p *Pane, focused, hov
 				a.later(c, func() { a.closePane(p) })
 			}
 		})
+	})
+}
+
+// tintChip names the kind of a tinted pane in its header: a dot of its
+// color and a word, in a pill of it.
+func tintChip(c *ui.Context, k *colors, tn tint) {
+	ui.Row(c).Height(20).Padding(0, 8).Gap(5).AlignItems(ui.Center).Radius(10).Shrink(0).
+		Background(tn.col.Alpha(0.14)).Border(1, tn.col.Alpha(0.4)).Label(tn.chip).Children(func() {
+		ui.Box(c).Size(6, 6).Radius(3).Background(tn.col)
+		ui.Text(c, tn.chip).FontSize(11).FontWeight(600).TextColor(k.text).SingleLine()
 	})
 }
 

@@ -48,7 +48,7 @@ var lineSpacings = []struct {
 }{{"Compact", 1}, {"Normal", 1.1}, {"Relaxed", 1.2}}
 
 // settingsTabs are the panel's sections.
-var settingsTabs = []struct{ id, label string }{{"look", "Look"}, {"text", "Text"}, {"general", "General"}}
+var settingsTabs = []struct{ id, label string }{{"look", "Look"}, {"panes", "Panes"}, {"text", "Text"}, {"general", "General"}}
 
 func (a *App) settingsPanel(c *ui.Context, k *colors) {
 	if a.settingsTab == "" {
@@ -70,6 +70,8 @@ func (a *App) settingsPanel(c *ui.Context, k *colors) {
 		}
 	})
 	switch a.settingsTab {
+	case "panes":
+		a.paneSettings(c, k)
 	case "text":
 		a.textSettings(c, k)
 	case "general":
@@ -236,6 +238,46 @@ func (a *App) backgroundSettings(c *ui.Context, k *colors) {
 	if v, ok := sliderRow(c, k, "Blur", fmt.Sprintf("%.0f px", blur), "Softens a busy image", blur, 0, 24); ok {
 		a.changeLook(func(s *settings) { s.BackgroundBlur = float32(int(v + 0.5)) })
 	}
+}
+
+// paneSettings draws the pane tints: the switch of them all, how
+// strongly they show, and the switch of each kind, in its color.
+func (a *App) paneSettings(c *ui.Context, k *colors) {
+	if toggleRow(c, k, "Tint panes by program", "Color panes by what runs in them, as a remote or a root shell. Off, every pane looks the same.", !prefs.NoPaneTints) {
+		a.changeLook(func(s *settings) { s.NoPaneTints = !s.NoPaneTints })
+	}
+	on := !prefs.NoPaneTints
+	body := ui.Column(c).Gap(14)
+	if !on {
+		// The choices keep their places, faded, while tints are off.
+		body.Opacity(0.45)
+	}
+	body.Children(func() {
+		at := 0
+		labels := make([]string, len(tintStrengths))
+		for i, s := range tintStrengths {
+			labels[i] = s.label
+			if s.id == prefs.paneTintStrength() {
+				at = i
+			}
+		}
+		if i, ok := segmented(c, k, "Strength", labels, at); ok && on {
+			a.changeLook(func(s *settings) { s.PaneTint = tintStrengths[i].id })
+		}
+		ui.Text(c, tintStrengths[at].hint).FontSize(11.5).TextColor(k.textFaint).Margin(-8, 0, 0, 0)
+		for _, tk := range tintKinds {
+			ui.Row(c.Key("tint-" + tk.id)).Gap(10).AlignItems(ui.Center).Children(func() {
+				ui.Box(c).Size(10, 10).Radius(5).Background(tintColor(k, tk.id)).Shrink(0)
+				ui.Box(c).Grow(1).MinWidth(0).Children(func() {
+					if toggleRow(c, k, tk.label, tk.hint, prefs.tintOn(tk.id)) && on {
+						a.changeLook(func(s *settings) { s.toggleTint(tk.id) })
+					}
+				})
+			})
+		}
+		ui.Text(c, "A pane takes its tint while the program runs, and loses it once the program ends. The colors are the theme's.").
+			FontSize(11.5).TextColor(k.textFaint)
+	})
 }
 
 // textSettings draws the fonts, the text's size, the rows' height, the

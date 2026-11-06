@@ -33,6 +33,9 @@ type colors struct {
 	switchOff ui.Color
 
 	busy, attention, danger ui.Color
+	// blue and magenta are its terminals': with danger and attention,
+	// the colors of pane tints.
+	blue, magenta ui.Color
 
 	panel, panelBorder, shadow, backdrop ui.Color
 }

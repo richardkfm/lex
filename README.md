@@ -56,14 +56,21 @@ Linux and macOS.
   file dialog, which you fill, fit, tile or center. Set the panes'
   opacity, and how much the background is dimmed (faded in a light
   theme) and blurred. Lex keeps your image's path.
+- **Pane tints**: a pane takes a color of the theme while what runs in
+  it is worth keeping in mind: a remote session (ssh, mosh), root (sudo,
+  su, doas), a container (docker or podman exec, kubectl exec), or, on
+  asking, an AI agent (Claude Code, Codex). The color shows in the rim,
+  in the header too with a word naming the kind, or over the whole
+  pane, and goes once the program ends. The Panes section of the
+  settings turns tints off, all at once or by kind.
 - **Fonts**: JetBrains Mono embedded for the terminals, or any of the
   system's monospaced fonts (or all of them, on asking), searchable; the
   rest of the window in the system's font or another.
 - **Settings** behind the gear of the title bar (Ctrl+Shift+, or
-  View ▸ Settings…), in three sections: Look (theme and background),
-  Text (fonts, text size (Ctrl+= Ctrl+- Ctrl+0), line spacing, the
-  cursor's shape and blinking, ligatures), and General (the notification
-  of a long command finishing in the background). They show in every
+  View ▸ Settings…), in four sections: Look (theme and background),
+  Panes (pane tints), Text (fonts, text size (Ctrl+= Ctrl+- Ctrl+0),
+  line spacing, the cursor's shape and blinking, ligatures), and General
+  (the notification of a long command finishing in the background). They show in every
   pane at once and are kept in `settings.json`, in the data directory.
 
 ## Install

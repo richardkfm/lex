@@ -149,6 +149,8 @@ func (t *theme) colors() *colors {
 		busy:              ui.Hex(t.busy),
 		attention:         ui.Hex(t.attention),
 		danger:            ui.Hex(t.danger),
+		blue:              ui.Hex(t.pal[4]),
+		magenta:           ui.Hex(t.pal[5]),
 		panel:             ui.Hex(t.card),
 		panelBorder:       text.Alpha(0.12),
 	}

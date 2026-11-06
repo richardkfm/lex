@@ -44,6 +44,18 @@ type settings struct {
 	BackgroundDim    float32 `json:"backgroundDim,omitempty"`
 	BackgroundBlur   float32 `json:"backgroundBlur,omitempty"`
 
+	// NoPaneTints turns off coloring panes by what runs in them
+	// (tints.go); PaneTint is how strongly they show: "rim", "header"
+	// (the default) or "wash". NoTintRemote, NoTintRoot and
+	// NoTintContainer turn off a kind each, and TintAgents turns on AI
+	// agents', which are off by default.
+	NoPaneTints     bool   `json:"noPaneTints,omitempty"`
+	PaneTint        string `json:"paneTint,omitempty"`
+	NoTintRemote    bool   `json:"noTintRemote,omitempty"`
+	NoTintRoot      bool   `json:"noTintRoot,omitempty"`
+	NoTintContainer bool   `json:"noTintContainer,omitempty"`
+	TintAgents      bool   `json:"tintAgents,omitempty"`
+
 	// Font is the family of the terminals' text, one of the system's:
 	// JetBrains Mono, which Lex embeds, when empty. UIFont is the family
 	// of the rest of the window's text: the system's when empty.
