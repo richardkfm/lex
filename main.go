@@ -48,6 +48,7 @@ func main() {
 		}
 	}
 	setProgramName()
+	registerAppImage()
 	registerFonts()
 	loadSettings()
 	a := &App{}

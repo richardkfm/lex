@@ -130,7 +130,10 @@ It uses the system's GTK and graphics drivers, as the packages do, and
 FUSE to mount itself (`fusermount`, from the `fuse` or `fuse3` package,
 which most desktops have). It adds no menu entry by itself: Gear Lever or
 AppImageLauncher integrate it, and update it from the `.zsync` of the
-latest release. The session server runs from the AppImage too, so keep the
+latest release. For its icon in the taskbar, it registers a hidden
+`lex.desktop` and its icon in `~/.local/share`, as KDE and GNOME look a
+Wayland window's icon up by that name, unless a package or `install.sh`
+put a `lex.desktop` there. The session server runs from the AppImage too, so keep the
 file in one place: replacing it with a new version, or running another
 copy, ends the sessions of the one before, as installing a new version
 does. `SHA256SUMS` lists the checksums of the files.
