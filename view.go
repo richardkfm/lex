@@ -21,9 +21,29 @@ func (a *App) view(c *ui.Context) {
 	a.services = c.Services()
 	a.runPosted()
 	k := colorsOf(c)
+	uiTheme(c, k)
 	a.focusedWin = a.win == nil || a.win.IsFocused()
 	c.Root().Background(k.bg)
-	ui.Column(c).Fill().Background(k.bg).Children(func() {
+	root := ui.Column(c).Fill()
+	// The background image shows through the title bar and the gaps, and
+	// faintly through the panes, dimmed toward black, or in a light theme
+	// toward its own color.
+	bg := a.background()
+	a.bgShown = bg != nil && bg.bmp != nil
+	if a.bgShown {
+		dim := ui.RGBA(0, 0, 0, prefs.backgroundDim())
+		if !c.Theme().Dark {
+			dim = k.bg.Alpha(prefs.backgroundDim())
+		}
+		fit := prefs.BackgroundFit
+		root.Draw(func(p *ui.Painter, r ui.Rect) {
+			drawBackdrop(p, r, bg, fit)
+			p.Fill(r, dim, 0)
+		})
+	} else {
+		root.Background(k.bg)
+	}
+	root.Children(func() {
 		a.titleBar(c, k)
 		ui.Column(c).Grow(1).MinHeight(0).Padding(0, gap, gap, gap).Children(func() {
 			if t := a.tab(); t != nil {
@@ -48,6 +68,21 @@ func (a *App) view(c *ui.Context) {
 			a.win.SetTitle(title)
 		}
 	}
+}
+
+// uiTheme gives MyGo's own widgets, as the settings' sliders and the
+// inputs, the theme's accent and text, and the window's text the font the
+// settings chose.
+func uiTheme(c *ui.Context, k *colors) {
+	t := *c.Theme()
+	t.Accent, t.AccentHover, t.AccentPressed, t.AccentText = k.accent, k.accent, k.accent.Alpha(0.85), k.onAccent
+	t.InactiveAccent = k.accent
+	t.Text, t.TextMuted = k.text, k.textMuted
+	t.Selection = k.accent.Alpha(0.3)
+	if prefs.UIFont != "" {
+		t.Font = prefs.UIFont
+	}
+	c.SetTheme(&t)
 }
 
 // ownControls tells that the title bar draws the window's controls: on
@@ -242,7 +277,11 @@ func (a *App) paneCard(c *ui.Context, k *colors, t *Tab, p *Pane) ui.Element {
 	if focused {
 		border = k.cardBorderFocused
 	}
-	card.Background(k.card).Border(1, border)
+	face := k.card
+	if a.bgShown {
+		face = face.Alpha(prefs.paneOpacity())
+	}
+	card.Background(face).Border(1, border)
 	card.Transition(ui.ElementTransition{Colors: true, Duration: 160 * time.Millisecond})
 	hovered := card.Hovered()
 	card.Children(func() {
