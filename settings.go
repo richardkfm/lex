@@ -34,11 +34,27 @@ type settings struct {
 	// opaque the panes are over it, from 0.3 to 1 (0.85 when zero);
 	// BackgroundDim darkens it, or lightens it in a light theme, from 0
 	// to 0.8; BackgroundBlur blurs it by that many DIPs, up to 24.
-	Background     string  `json:"background,omitempty"`
-	BackgroundFit  string  `json:"backgroundFit,omitempty"`
-	PaneOpacity    float32 `json:"paneOpacity,omitempty"`
-	BackgroundDim  float32 `json:"backgroundDim,omitempty"`
-	BackgroundBlur float32 `json:"backgroundBlur,omitempty"`
+	// Background may also name one of Lex's patterns (patterns.go), as
+	// "lex:nebula", which always covers the window. CustomBackground is
+	// the user's own picture last chosen, which the settings offer again.
+	Background       string  `json:"background,omitempty"`
+	CustomBackground string  `json:"customBackground,omitempty"`
+	BackgroundFit    string  `json:"backgroundFit,omitempty"`
+	PaneOpacity      float32 `json:"paneOpacity,omitempty"`
+	BackgroundDim    float32 `json:"backgroundDim,omitempty"`
+	BackgroundBlur   float32 `json:"backgroundBlur,omitempty"`
+
+	// NoPaneTints turns off coloring panes by what runs in them
+	// (tints.go); PaneTint is how strongly they show: "rim", "header"
+	// (the default) or "wash". NoTintRemote, NoTintRoot and
+	// NoTintContainer turn off a kind each, and TintAgents turns on AI
+	// agents', which are off by default.
+	NoPaneTints     bool   `json:"noPaneTints,omitempty"`
+	PaneTint        string `json:"paneTint,omitempty"`
+	NoTintRemote    bool   `json:"noTintRemote,omitempty"`
+	NoTintRoot      bool   `json:"noTintRoot,omitempty"`
+	NoTintContainer bool   `json:"noTintContainer,omitempty"`
+	TintAgents      bool   `json:"tintAgents,omitempty"`
 
 	// Font is the family of the terminals' text, one of the system's:
 	// JetBrains Mono, which Lex embeds, when empty. UIFont is the family

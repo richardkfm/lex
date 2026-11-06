@@ -52,6 +52,7 @@ var (
 	cmdBigger      = command{Title: "Bigger Text", Accel: "CmdOrCtrl+=", Keys: "⌘+", Other: shortcut{ui.Ctrl, ui.KeyEqual}, Run: func(a *App) { a.setFontSize(termFont.Size + 1) }}
 	cmdSmaller     = command{Title: "Smaller Text", Accel: "CmdOrCtrl+-", Keys: "⌘−", Other: shortcut{ui.Ctrl, ui.KeyMinus}, Run: func(a *App) { a.setFontSize(termFont.Size - 1) }}
 	cmdActualSize  = command{Title: "Actual Size", Accel: "CmdOrCtrl+0", Keys: "⌘0", Other: shortcut{ui.Ctrl, ui.Key0}, Run: func(a *App) { a.setFontSize(defaultFontSize) }}
+	cmdTints       = command{Title: "Toggle Pane Tints", Run: func(a *App) { a.changeLook(func(s *settings) { s.NoPaneTints = !s.NoPaneTints }) }}
 	cmdFollow      = command{Title: "Theme: Match System Appearance", Run: func(a *App) { a.toggleFollowSystem(mygo.Theme.IsDark()) }}
 	cmdSettings    = command{Title: "Settings…", Accel: "CmdOrCtrl+,", Keys: "⌘,", Other: ctrlShift(ui.KeyComma), Run: func(a *App) { a.settingsOpen = true }}
 	cmdEndAll      = command{Title: "Quit and End All Sessions", Accel: "CmdOrCtrl+Alt+Q", Keys: "⌥⌘Q", Run: func(a *App) { a.quitAndEnd() }}
@@ -64,7 +65,7 @@ var paletteCommands = append([]*command{
 	&cmdNextTab, &cmdPrevTab, &cmdRenameTab,
 	&cmdFocusLeft, &cmdFocusRight, &cmdFocusUp, &cmdFocusDown,
 	&cmdGrowLeft, &cmdGrowRight, &cmdGrowUp, &cmdGrowDown,
-	&cmdSettings, &cmdBigger, &cmdSmaller, &cmdActualSize,
+	&cmdSettings, &cmdBigger, &cmdSmaller, &cmdActualSize, &cmdTints,
 	&cmdClearScroll, &cmdRestart, &cmdEndAll,
 }, themeCommands...)
 

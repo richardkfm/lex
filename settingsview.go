@@ -48,7 +48,7 @@ var lineSpacings = []struct {
 }{{"Compact", 1}, {"Normal", 1.1}, {"Relaxed", 1.2}}
 
 // settingsTabs are the panel's sections.
-var settingsTabs = []struct{ id, label string }{{"look", "Look"}, {"text", "Text"}, {"general", "General"}}
+var settingsTabs = []struct{ id, label string }{{"look", "Look"}, {"panes", "Panes"}, {"text", "Text"}, {"general", "General"}}
 
 func (a *App) settingsPanel(c *ui.Context, k *colors) {
 	if a.settingsTab == "" {
@@ -70,6 +70,8 @@ func (a *App) settingsPanel(c *ui.Context, k *colors) {
 		}
 	})
 	switch a.settingsTab {
+	case "panes":
+		a.paneSettings(c, k)
 	case "text":
 		a.textSettings(c, k)
 	case "general":
@@ -161,52 +163,64 @@ func themeCard(c *ui.Context, k *colors, t *theme, on, paired bool) ui.Element {
 	return card
 }
 
-// backgroundSettings draws the background image: the button choosing
-// one, and while there is one, its picture, its fit, the panes' opacity
-// over it, how dim and how blurred it is.
+// backgroundSettings draws the background: none, Lex's patterns or the
+// user's own picture, as thumbnails, the button choosing a picture, and
+// while there is a background, the panes' opacity over it, how dim and
+// how blurred it is, and for a picture, its fit.
 func (a *App) backgroundSettings(c *ui.Context, k *colors) {
 	ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, "Background").FontSize(12.5).TextColor(k.text).Grow(1)
-		if prefs.Background != "" && textButton(c, k, "Remove").Clicked() {
-			a.setBackground("")
-		}
 		if textButton(c, k, "Choose Image…").Clicked() {
 			a.chooseBackground()
 		}
 	})
-	if prefs.Background == "" {
-		ui.Text(c, "An image of yours behind the title bar and the panes, which turn translucent over it.").
+	pat, isPattern := patternOf(prefs.Background)
+	ui.Row(c).Gap(6).Wrap().Role(ui.RoleRadioGroup).Label("Background").Children(func() {
+		if bgThumb(c, k, "none", "None", nil, prefs.Background == "").Clicked() {
+			a.setBackground("")
+		}
+		for _, p := range patterns {
+			if bgThumb(c, k, p.id, p.name, a.patternThumb(p), isPattern && pat.id == p.id).Clicked() {
+				a.setBackground(patternPrefix + p.id)
+			}
+		}
+		if own := prefs.CustomBackground; own != "" {
+			if bgThumb(c, k, "own", filepath.Base(own), a.customThumb(own), prefs.Background == own).Clicked() {
+				a.setBackground(own)
+			}
+		}
+	})
+	switch {
+	case prefs.Background == "":
+		ui.Text(c, "A pattern of Lex's, or an image of yours, behind the title bar and the panes, which turn translucent over it.").
 			FontSize(11.5).TextColor(k.textFaint)
 		return
-	}
-	bg := a.background()
-	ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
-		thumb := ui.Box(c).Size(64, 40).Radius(5).Clip().Border(1, k.sep).Background(k.card).Shrink(0)
-		if bg != nil && bg.bmp != nil {
-			thumb.Draw(func(p *ui.Painter, r ui.Rect) { p.Image(bg.bmp, r, ui.Cover) })
-		}
-		ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
-			ui.Text(c, filepath.Base(prefs.Background)).FontSize(12.5).TextColor(k.text).SingleLine().Ellipsis("…").
-				MinWidth(0).Tooltip(prefs.Background)
+	case isPattern:
+		ui.Text(c, pat.name+", drawn by Lex").FontSize(11.5).TextColor(k.textFaint)
+	default:
+		bg := a.background()
+		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, filepath.Base(prefs.Background)).FontSize(11.5).TextColor(k.text).SingleLine().Ellipsis("…").
+				MinWidth(0).Shrink(1).Tooltip(prefs.Background)
 			switch {
 			case bg == nil:
-				ui.Text(c, "Loading…").FontSize(11.5).TextColor(k.textFaint)
+				ui.Text(c, "Loading…").FontSize(11.5).TextColor(k.textFaint).Shrink(0)
 			case bg.err != "":
-				ui.Text(c, bg.err).FontSize(11.5).TextColor(k.danger)
+				ui.Text(c, bg.err).FontSize(11.5).TextColor(k.danger).Shrink(0)
 			default:
-				ui.Text(c, fmt.Sprintf("%d × %d", bg.w, bg.h)).FontSize(11.5).TextColor(k.textFaint)
+				ui.Text(c, fmt.Sprintf("%d × %d", bg.w, bg.h)).FontSize(11.5).TextColor(k.textFaint).Shrink(0)
 			}
 		})
-	})
-	fits := []string{"fill", "fit", "tile", "center"}
-	at := 0
-	for i, f := range fits {
-		if prefs.BackgroundFit == f {
-			at = i
+		fits := []string{"fill", "fit", "tile", "center"}
+		at := 0
+		for i, f := range fits {
+			if prefs.BackgroundFit == f {
+				at = i
+			}
 		}
-	}
-	if i, ok := segmented(c, k, "Fit", []string{"Fill", "Fit", "Tile", "Center"}, at); ok {
-		a.changeLook(func(s *settings) { s.BackgroundFit = fits[i] })
+		if i, ok := segmented(c, k, "Fit", []string{"Fill", "Fit", "Tile", "Center"}, at); ok {
+			a.changeLook(func(s *settings) { s.BackgroundFit = fits[i] })
+		}
 	}
 	op := prefs.paneOpacity()
 	if v, ok := sliderRow(c, k, "Pane opacity", fmt.Sprintf("%.0f %%", op*100), "How much the panes hide the image", op, 0.3, 1); ok {
@@ -224,6 +238,46 @@ func (a *App) backgroundSettings(c *ui.Context, k *colors) {
 	if v, ok := sliderRow(c, k, "Blur", fmt.Sprintf("%.0f px", blur), "Softens a busy image", blur, 0, 24); ok {
 		a.changeLook(func(s *settings) { s.BackgroundBlur = float32(int(v + 0.5)) })
 	}
+}
+
+// paneSettings draws the pane tints: the switch of them all, how
+// strongly they show, and the switch of each kind, in its color.
+func (a *App) paneSettings(c *ui.Context, k *colors) {
+	if toggleRow(c, k, "Tint panes by program", "Color panes by what runs in them, as a remote or a root shell. Off, every pane looks the same.", !prefs.NoPaneTints) {
+		a.changeLook(func(s *settings) { s.NoPaneTints = !s.NoPaneTints })
+	}
+	on := !prefs.NoPaneTints
+	body := ui.Column(c).Gap(14)
+	if !on {
+		// The choices keep their places, faded, while tints are off.
+		body.Opacity(0.45)
+	}
+	body.Children(func() {
+		at := 0
+		labels := make([]string, len(tintStrengths))
+		for i, s := range tintStrengths {
+			labels[i] = s.label
+			if s.id == prefs.paneTintStrength() {
+				at = i
+			}
+		}
+		if i, ok := segmented(c, k, "Strength", labels, at); ok && on {
+			a.changeLook(func(s *settings) { s.PaneTint = tintStrengths[i].id })
+		}
+		ui.Text(c, tintStrengths[at].hint).FontSize(11.5).TextColor(k.textFaint).Margin(-8, 0, 0, 0)
+		for _, tk := range tintKinds {
+			ui.Row(c.Key("tint-" + tk.id)).Gap(10).AlignItems(ui.Center).Children(func() {
+				ui.Box(c).Size(10, 10).Radius(5).Background(tintColor(k, tk.id)).Shrink(0)
+				ui.Box(c).Grow(1).MinWidth(0).Children(func() {
+					if toggleRow(c, k, tk.label, tk.hint, prefs.tintOn(tk.id)) && on {
+						a.changeLook(func(s *settings) { s.toggleTint(tk.id) })
+					}
+				})
+			})
+		}
+		ui.Text(c, "A pane takes its tint while the program runs, and loses it once the program ends. The colors are the theme's.").
+			FontSize(11.5).TextColor(k.textFaint)
+	})
 }
 
 // textSettings draws the fonts, the text's size, the rows' height, the
@@ -451,6 +505,34 @@ func chevron(c *ui.Context, k *colors, open bool) {
 		}
 		p.StrokePolyline([][2]float32{{r.X + 1, y0}, {r.X + 5, y1}, {r.X + 9, y0}}, 1.3, k.textMuted)
 	})
+}
+
+// bgThumb draws a background the settings offer: its little picture, or
+// its name when it has none, in the accent's rim while it is the one shown.
+func bgThumb(c *ui.Context, k *colors, id, name string, pic *ui.Bitmap, on bool) ui.Element {
+	b := ui.Box(c.Key("bg-"+id)).Size(52, 36).Radius(6).Clip().Center().Cursor(ui.CursorPointer).
+		Role(ui.RoleRadio).Label(name).Checked(on).Tooltip(name).Background(k.card)
+	rim := float32(1)
+	switch {
+	case on:
+		rim = 2
+		b.Border(2, k.accent)
+	case b.Hovered():
+		b.Border(1, k.cardBorderFocused)
+	default:
+		b.Border(1, k.sep)
+	}
+	if pic != nil {
+		// Inside the rim, which it would hide.
+		b.Draw(func(p *ui.Painter, r ui.Rect) {
+			p.Image(pic, ui.Rect{X: r.X + rim, Y: r.Y + rim, W: r.W - 2*rim, H: r.H - 2*rim}, ui.Cover)
+		})
+	} else {
+		b.Children(func() {
+			ui.Text(c, map[bool]string{true: "None", false: "…"}[id == "none"]).FontSize(11).TextColor(k.textFaint)
+		})
+	}
+	return b
 }
 
 // textButton is a small button of a word, in a hairline rim.

@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+
+	"lex/internal/rex"
 )
 
 // TestMigrateAppearance turns the appearance of earlier versions into
@@ -288,5 +290,137 @@ func TestOverImage(t *testing.T) {
 	a.bgShown = true
 	if got := a.overImage(k.bg); got.A != 153 || got.R != k.bg.R {
 		t.Errorf("over an image the title bar's face is %v", got)
+	}
+}
+
+// TestPatterns draws each of Lex's backgrounds, opaque and not of one
+// color, and names them as the settings keep them.
+func TestPatterns(t *testing.T) {
+	for _, p := range patterns {
+		got, ok := patternOf(patternPrefix + p.id)
+		if !ok || got.id != p.id {
+			t.Errorf("%q names no pattern", patternPrefix+p.id)
+		}
+		img := p.render(192, 108, 0.1)
+		lo, hi := 255, 0
+		for i := 0; i < len(img.Pix); i += 4 {
+			if img.Pix[i+3] != 255 {
+				t.Fatalf("%s is not opaque", p.id)
+			}
+			l := int(img.Pix[i]) + int(img.Pix[i+1]) + int(img.Pix[i+2])
+			lo, hi = min(lo, l), max(hi, l)
+		}
+		if hi-lo < 6 {
+			t.Errorf("%s is all of one color (%d to %d)", p.id, lo, hi)
+		}
+	}
+	if _, ok := patternOf("/home/me/lex:nebula.png"); ok {
+		t.Error("a picture's path names a pattern")
+	}
+}
+
+// TestBackgroundThumbs chooses a pattern and the picture of one's own
+// with their thumbnails, and keeps that picture while a pattern shows.
+func TestBackgroundThumbs(t *testing.T) {
+	saved := prefs
+	t.Cleanup(func() { prefs = saved })
+	prefs = settings{FontSize: defaultFontSize, Background: "/nowhere/wall.png", CustomBackground: "/nowhere/wall.png", BackgroundFit: "tile"}
+	_, tt := newTestApp(t)
+	tt.Frame()
+	click := clicker(t, tt)
+	click("Settings")
+	click("Nebula")
+	if prefs.Background != "lex:nebula" || prefs.CustomBackground != "/nowhere/wall.png" || prefs.backgroundFit() != "fill" {
+		t.Fatalf("after Nebula: %+v", prefs)
+	}
+	click("wall.png")
+	if prefs.Background != "/nowhere/wall.png" || prefs.backgroundFit() != "tile" {
+		t.Fatalf("after the picture: %+v", prefs)
+	}
+	click("None")
+	if prefs.Background != "" {
+		t.Fatalf("after None: %+v", prefs)
+	}
+}
+
+// TestPaneKind tells the kinds of panes by their programs and
+// arguments, and none for a shell at its prompt.
+func TestPaneKind(t *testing.T) {
+	for _, tc := range []struct {
+		program string
+		args    []string
+		idle    bool
+		want    string
+	}{
+		{"bash", nil, true, ""},
+		{"ssh", []string{"ssh", "-p", "22", "prod-db"}, false, "remote"},
+		{"mosh-client", nil, false, "remote"},
+		{"sudo", []string{"sudo", "apt", "upgrade"}, false, "root"},
+		{`C:\Windows\System32\sudo.exe`, nil, false, "root"},
+		{"docker", []string{"docker", "exec", "-it", "web", "sh"}, false, "container"},
+		{"docker", []string{"docker", "compose", "run", "web"}, false, "container"},
+		{"docker", []string{"docker", "ps"}, false, ""},
+		{"docker", []string{"/bin/sh", "/usr/local/bin/docker", "exec", "web"}, false, "container"},
+		{"kubectl", []string{"kubectl", "-n", "prod", "exec", "-it", "api", "--", "sh"}, false, "container"},
+		{"kubectl", []string{"kubectl", "get", "pods"}, false, ""},
+		{"claude", nil, false, "agent"},
+		{"vim", []string{"vim", "ssh"}, false, ""},
+	} {
+		in := rex.SessionInfo{Program: tc.program, Args: tc.args, Idle: tc.idle}
+		if got := paneKind(in); got != tc.want {
+			t.Errorf("%s %q: %q, want %q", tc.program, tc.args, got, tc.want)
+		}
+	}
+}
+
+// TestPaneTints tints panes by kind as the settings ask, agents only on
+// asking, and none when tints are off; the Panes section turns them off.
+func TestPaneTints(t *testing.T) {
+	saved := prefs
+	t.Cleanup(func() { prefs = saved })
+	prefs = settings{FontSize: defaultFontSize}
+	k := themeColors["aurora"]
+	ssh := rex.SessionInfo{Program: "ssh", Args: []string{"ssh", "host"}}
+	agent := rex.SessionInfo{Program: "claude"}
+	if tn := paneTint(k, ssh); !tn.on || tn.col != k.danger || tn.chip != "Remote" || !tn.header || tn.wash {
+		t.Errorf("an SSH pane's tint: %+v", tn)
+	}
+	for _, th := range themes {
+		kc, seen := themeColors[th.id], map[ui.Color]string{}
+		for _, tk := range tintKinds {
+			if other, ok := seen[tintColor(kc, tk.id)]; ok {
+				t.Errorf("%s: %s and %s take the same tint", th.id, other, tk.id)
+			}
+			seen[tintColor(kc, tk.id)] = tk.id
+		}
+	}
+	if paneTint(k, agent).on {
+		t.Error("an agent's pane is tinted by default")
+	}
+	prefs.TintAgents, prefs.PaneTint = true, "wash"
+	if tn := paneTint(k, agent); !tn.on || tn.col != k.magenta || !tn.wash {
+		t.Errorf("an agent's tint, asked for: %+v", tn)
+	}
+	prefs = settings{FontSize: defaultFontSize}
+	_, tt := newTestApp(t)
+	tt.Frame()
+	click := clicker(t, tt)
+	click("Settings")
+	click("Panes")
+	click("Containers")
+	if !prefs.NoTintContainer {
+		t.Fatal("the Containers switch did not turn their tint off")
+	}
+	click("Wash")
+	if prefs.PaneTint != "wash" {
+		t.Fatalf("Wash made the strength %q", prefs.PaneTint)
+	}
+	click("Tint panes by program")
+	if !prefs.NoPaneTints || paneTint(k, ssh).on {
+		t.Fatal("the switch did not turn tints off")
+	}
+	click("Remote sessions")
+	if prefs.NoTintRemote {
+		t.Error("a kind's switch changed while tints were off")
 	}
 }
