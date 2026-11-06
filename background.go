@@ -114,7 +114,11 @@ func (a *App) backgroundSource(path string) *bgSource {
 		return s
 	}
 	s := &bgSource{path: path}
-	s.img, s.w, s.h, s.err = decodePicture(path)
+	if p, ok := patternOf(path); ok {
+		s.img, s.w, s.h = p.render(patternW, patternH, patternW/1920.0), patternW, patternH
+	} else {
+		s.img, s.w, s.h, s.err = decodePicture(path)
+	}
 	a.bgSrc = s
 	return s
 }
@@ -257,16 +261,71 @@ func (a *App) chooseBackground() {
 	}()
 }
 
-// setBackground makes the picture at path the background, none for "".
-// The first picture comes slightly dimmed, so that text stays readable
-// over it.
+// setBackground makes the picture at path, or one of Lex's patterns
+// ("lex:nebula"), the background, none for "". The first background
+// comes slightly dimmed, so that text stays readable over it. A picture
+// of the user's is kept, so that the settings offer it again after
+// another background.
 func (a *App) setBackground(path string) {
 	a.changeLook(func(s *settings) {
 		if path != "" && s.Background == "" && s.PaneOpacity == 0 && s.BackgroundDim == 0 && s.BackgroundBlur == 0 {
 			s.BackgroundDim = 0.2
 		}
 		s.Background = path
+		if _, ok := patternOf(path); !ok && path != "" {
+			s.CustomBackground = path
+		}
 	})
+}
+
+// backgroundFit is how the background fills the window: as the settings
+// ask for a picture, and covering it for a pattern, which is drawn for
+// it.
+func (s settings) backgroundFit() string {
+	if _, ok := patternOf(s.Background); ok {
+		return "fill"
+	}
+	return s.BackgroundFit
+}
+
+// patternThumb returns the little picture of a pattern the settings show,
+// drawn once.
+func (a *App) patternThumb(p pattern) *ui.Bitmap {
+	if a.thumbs == nil {
+		a.thumbs = map[string]*ui.Bitmap{}
+	}
+	b, ok := a.thumbs[p.id]
+	if !ok {
+		b = ui.NewBitmap(p.render(104, 72, 0.5))
+		a.thumbs[p.id] = b
+	}
+	return b
+}
+
+// customThumb returns the little picture of the user's own background,
+// which it starts making off the main thread the first time; nil until
+// it is made, or when the picture cannot be read.
+func (a *App) customThumb(path string) *ui.Bitmap {
+	if a.thumbs == nil {
+		a.thumbs = map[string]*ui.Bitmap{}
+	}
+	key := "file:" + path
+	if b, ok := a.thumbs[key]; ok {
+		return b
+	}
+	a.thumbs[key] = nil
+	go func() {
+		img, _, _, err := decodePicture(path)
+		if err != nil {
+			return
+		}
+		b := img.Bounds()
+		small := image.NewRGBA(image.Rect(0, 0, 128, max(1, 128*b.Dy()/b.Dx())))
+		xdraw.BiLinear.Scale(small, small.Bounds(), img, b, xdraw.Src, nil)
+		bmp := ui.NewBitmap(small)
+		a.laterService(func() { a.thumbs[key] = bmp })
+	}()
+	return nil
 }
 
 // backgroundBlur is the blur the settings ask for, in whole DIPs.

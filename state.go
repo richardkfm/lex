@@ -132,6 +132,9 @@ type App struct {
 	bgMu    sync.Mutex
 	bgSrc   *bgSource
 	bgShown bool
+	// thumbs are the little pictures of the backgrounds the settings
+	// offer, by pattern id, or "file:" and a picture's path.
+	thumbs map[string]*ui.Bitmap
 }
 
 func (a *App) post(fn func()) {

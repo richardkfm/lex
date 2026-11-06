@@ -290,3 +290,53 @@ func TestOverImage(t *testing.T) {
 		t.Errorf("over an image the title bar's face is %v", got)
 	}
 }
+
+// TestPatterns draws each of Lex's backgrounds, opaque and not of one
+// color, and names them as the settings keep them.
+func TestPatterns(t *testing.T) {
+	for _, p := range patterns {
+		got, ok := patternOf(patternPrefix + p.id)
+		if !ok || got.id != p.id {
+			t.Errorf("%q names no pattern", patternPrefix+p.id)
+		}
+		img := p.render(192, 108, 0.1)
+		lo, hi := 255, 0
+		for i := 0; i < len(img.Pix); i += 4 {
+			if img.Pix[i+3] != 255 {
+				t.Fatalf("%s is not opaque", p.id)
+			}
+			l := int(img.Pix[i]) + int(img.Pix[i+1]) + int(img.Pix[i+2])
+			lo, hi = min(lo, l), max(hi, l)
+		}
+		if hi-lo < 6 {
+			t.Errorf("%s is all of one color (%d to %d)", p.id, lo, hi)
+		}
+	}
+	if _, ok := patternOf("/home/me/lex:nebula.png"); ok {
+		t.Error("a picture's path names a pattern")
+	}
+}
+
+// TestBackgroundThumbs chooses a pattern and the picture of one's own
+// with their thumbnails, and keeps that picture while a pattern shows.
+func TestBackgroundThumbs(t *testing.T) {
+	saved := prefs
+	t.Cleanup(func() { prefs = saved })
+	prefs = settings{FontSize: defaultFontSize, Background: "/nowhere/wall.png", CustomBackground: "/nowhere/wall.png", BackgroundFit: "tile"}
+	_, tt := newTestApp(t)
+	tt.Frame()
+	click := clicker(t, tt)
+	click("Settings")
+	click("Nebula")
+	if prefs.Background != "lex:nebula" || prefs.CustomBackground != "/nowhere/wall.png" || prefs.backgroundFit() != "fill" {
+		t.Fatalf("after Nebula: %+v", prefs)
+	}
+	click("wall.png")
+	if prefs.Background != "/nowhere/wall.png" || prefs.backgroundFit() != "tile" {
+		t.Fatalf("after the picture: %+v", prefs)
+	}
+	click("None")
+	if prefs.Background != "" {
+		t.Fatalf("after None: %+v", prefs)
+	}
+}

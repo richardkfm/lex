@@ -35,7 +35,7 @@ func (a *App) view(c *ui.Context) {
 		if !c.Theme().Dark {
 			dim = k.bg.Alpha(prefs.backgroundDim())
 		}
-		fit := prefs.BackgroundFit
+		fit := prefs.backgroundFit()
 		root.Draw(func(p *ui.Painter, r ui.Rect) {
 			drawBackdrop(p, r, bg, fit)
 			p.Fill(r, dim, 0)

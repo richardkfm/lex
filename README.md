@@ -50,11 +50,12 @@ Linux and macOS.
   Theme menu. KDE's thin Breeze icons on the buttons and
   [Papirus](https://github.com/PapirusDevelopmentTeam/papirus-icon-theme)'s
   glyphs for programs.
-- **A background image** of your own, chosen with the system's file
-  dialog, behind the title bar and the panes, which turn translucent
-  over it: fill, fit, tile or center it, and set the panes' opacity, how
-  much it is dimmed (faded in a light theme) and blurred. Lex keeps its
-  path.
+- **A background** behind the title bar and the panes, which turn
+  translucent over it: one of four patterns Lex draws itself (Nebula,
+  Dunes, Dots, Lines), or an image of your own, chosen with the system's
+  file dialog, which you fill, fit, tile or center. Set the panes'
+  opacity, and how much the background is dimmed (faded in a light
+  theme) and blurred. Lex keeps your image's path.
 - **Fonts**: JetBrains Mono embedded for the terminals, or any of the
   system's monospaced fonts (or all of them, on asking), searchable; the
   rest of the window in the system's font or another.
