@@ -182,12 +182,12 @@ func (a *App) backgroundSettings(c *ui.Context, k *colors) {
 			a.setBackground("")
 		}
 		for _, p := range patterns {
-			if bgThumb(c, k, p.id, p.name, a.patternThumb(p), isPattern && pat.id == p.id).Clicked() {
+			if bgThumb(c, k, p.id, p.name, a.patternThumb(c, p), isPattern && pat.id == p.id).Clicked() {
 				a.setBackground(patternPrefix + p.id)
 			}
 		}
 		if own := prefs.CustomBackground; own != "" {
-			if bgThumb(c, k, "own", filepath.Base(own), a.customThumb(own), prefs.Background == own).Clicked() {
+			if bgThumb(c, k, "own", filepath.Base(own), bitmapThumb(a.customThumb(own)), prefs.Background == own).Clicked() {
 				a.setBackground(own)
 			}
 		}
@@ -250,9 +250,9 @@ func (a *App) motionSettings(c *ui.Context, k *colors) {
 	if toggleRow(c, k, "Animate panes and tabs", "Panes glide into place as they split, close and zoom, and tabs slide in and out", prefs.Animate) {
 		a.changeLook(func(s *settings) { s.Animate = !s.Animate })
 	}
-	hint := "The background drifts slowly, and Campfire and Snowfall play. The window then draws all the time, which costs some battery."
+	hint := "The background drifts slowly, and Lex's animated ones play: Ribbons, Contours, Snowfall and Rainy City. The window then draws all the time, which costs some battery."
 	if prefs.Background == "" {
-		hint = "For a background: it drifts slowly, and Campfire and Snowfall play."
+		hint = "For a background: it drifts slowly, and Lex's animated ones play."
 	}
 	if toggleRow(c, k, "Moving background", hint, prefs.MovingBackground) {
 		a.changeLook(func(s *settings) { s.MovingBackground = !s.MovingBackground })
@@ -561,7 +561,7 @@ func chevron(c *ui.Context, k *colors, open bool) {
 
 // bgThumb draws a background the settings offer: its little picture, or
 // its name when it has none, in the accent's rim while it is the one shown.
-func bgThumb(c *ui.Context, k *colors, id, name string, pic *ui.Bitmap, on bool) ui.Element {
+func bgThumb(c *ui.Context, k *colors, id, name string, pic func(p *ui.Painter, w, h float32) *ui.Bitmap, on bool) ui.Element {
 	b := ui.Box(c.Key("bg-"+id)).Size(52, 36).Radius(6).Clip().Center().Cursor(ui.CursorPointer).
 		Role(ui.RoleRadio).Label(name).Checked(on).Tooltip(name).Background(k.card)
 	rim := float32(1)
@@ -577,7 +577,10 @@ func bgThumb(c *ui.Context, k *colors, id, name string, pic *ui.Bitmap, on bool)
 	if pic != nil {
 		// Inside the rim, which it would hide.
 		b.Draw(func(p *ui.Painter, r ui.Rect) {
-			p.Image(pic, ui.Rect{X: r.X + rim, Y: r.Y + rim, W: r.W - 2*rim, H: r.H - 2*rim}, ui.Cover)
+			in := ui.Rect{X: r.X + rim, Y: r.Y + rim, W: r.W - 2*rim, H: r.H - 2*rim}
+			if bmp := pic(p, in.W, in.H); bmp != nil {
+				p.Image(bmp, in, ui.Cover)
+			}
 		})
 	} else {
 		b.Children(func() {

@@ -30,7 +30,8 @@ func (a *App) view(c *ui.Context) {
 	// faintly through the panes, dimmed toward black, or in a light theme
 	// toward its own color.
 	bg := a.background()
-	a.bgShown = bg != nil && bg.bmp != nil
+	a.bgShown = bg != nil && (bg.bmp != nil || bg.art != nil)
+	th := prefs.themeFor(c.Theme().Dark)
 	if a.bgShown {
 		dim := ui.RGBA(0, 0, 0, prefs.backgroundDim())
 		if !c.Theme().Dark {
@@ -38,7 +39,7 @@ func (a *App) view(c *ui.Context) {
 		}
 		fit := prefs.backgroundFit()
 		root.Draw(func(p *ui.Painter, r ui.Rect) {
-			a.drawBackground(p, r, bg, fit)
+			a.drawBackground(p, r, bg, fit, th)
 			p.Fill(r, dim, 0)
 		})
 	} else {

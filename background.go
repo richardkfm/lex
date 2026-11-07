@@ -28,9 +28,11 @@ import (
 type backdrop struct {
 	path string
 	// bmp is the picture, blurred as the settings ask; w and h are its
-	// own pixels, which "center" and "tile" show it at.
+	// own pixels, which "center" and "tile" show it at. art is one of
+	// Lex's abstract backgrounds instead, which the frame draws (art.go).
 	bmp  *ui.Bitmap
 	w, h int
+	art  *art
 	// err tells why the picture could not be shown.
 	err string
 }
@@ -68,6 +70,14 @@ func (a *App) background() *backdrop {
 	path := prefs.Background
 	if path == "" {
 		return nil
+	}
+	if p, ok := patternOf(path); ok && p.art != nil {
+		// Drawn by the painter as it draws the window, in the theme's
+		// colors (drawBackground).
+		if a.bg == nil || a.bg.path != path {
+			a.bg, a.bgKey = &backdrop{path: path, art: p.art}, ""
+		}
+		return a.bg
 	}
 	blur := prefs.backgroundBlur()
 	key := fmt.Sprintf("%d|%s", blur, path)
@@ -235,25 +245,41 @@ func boxBlur(src, dst []uint8, lines, length, r, stride, step int) {
 // do by default, and keeps still while the system asks for less motion
 // or the window draws without a GPU, where drawing it all the time would
 // cost too much.
-func (a *App) drawBackground(p *ui.Painter, r ui.Rect, b *backdrop, fit string) {
-	if !a.backgroundMoves(p) {
+func (a *App) drawBackground(p *ui.Painter, r ui.Rect, b *backdrop, fit string, th *theme) {
+	moves := a.backgroundMoves(p)
+	if moves {
+		// The drift's clock runs only while the background moves, so that
+		// it goes on from where it stopped, rather than jumping.
+		now := p.Now()
+		if !a.driftAt.IsZero() {
+			a.drift += min(max(now.Sub(a.driftAt), 0), 100*time.Millisecond)
+		}
+		a.driftAt = now
+		p.AnimationFrameRate(30)
+	} else {
 		a.driftAt = time.Time{}
-		drawBackdrop(p, r, b, fit)
-		return
 	}
-	// The drift's clock runs only while the background moves, so that it
-	// goes on from where it stopped, rather than jumping.
-	now := p.Now()
-	if !a.driftAt.IsZero() {
-		a.drift += min(max(now.Sub(a.driftAt), 0), 100*time.Millisecond)
-	}
-	a.driftAt = now
-	p.AnimationFrameRate(30)
 	shown := b
-	if pt, ok := patternOf(b.path); ok && pt.scene != nil {
+	if pt, ok := patternOf(b.path); ok && (pt.art != nil || pt.scene != nil && moves) {
 		f := *b
-		f.bmp = a.sceneBitmap(pt, a.drift)
+		if pt.art != nil {
+			t := artStill
+			if moves {
+				t = artTime(a.drift)
+			}
+			if a.art == nil {
+				a.art = &artView{async: true}
+			}
+			f.bmp = a.art.bitmap(pt.art, pt.id, int(r.W*p.Scale()), int(r.H*p.Scale()), th, t, prefs.backgroundBlur())
+			f.w, f.h = f.bmp.Size()
+		} else {
+			f.bmp = a.sceneBitmap(pt, a.drift)
+		}
 		shown = &f
+	}
+	if !moves {
+		drawBackdrop(p, r, shown, fit)
+		return
 	}
 	z, dx, dy := driftAt(a.drift, r)
 	p.Transform(ui.Scaling(z, z).Then(ui.Translation(dx, dy)), r.X+r.W/2, r.Y+r.H/2, func() {
@@ -368,18 +394,46 @@ func (s settings) backgroundFit() string {
 	return s.BackgroundFit
 }
 
-// patternThumb returns the little picture of a pattern the settings show,
-// drawn once.
-func (a *App) patternThumb(p pattern) *ui.Bitmap {
+// patternThumb returns what draws the little picture of a pattern the
+// settings show: drawn once, or for an art, in the theme's colors, drawn
+// again as the theme changes.
+func (a *App) patternThumb(c *ui.Context, p pattern) func(*ui.Painter, float32, float32) *ui.Bitmap {
+	if p.art != nil {
+		th := prefs.themeFor(c.Theme().Dark)
+		return func(pt *ui.Painter, w, h float32) *ui.Bitmap {
+			if a.artThumbs == nil {
+				a.artThumbs = map[string]*artView{}
+			}
+			v := a.artThumbs[p.id]
+			if v == nil {
+				v = &artView{}
+				a.artThumbs[p.id] = v
+			}
+			// As though in a small window, shrunk.
+			return v.bitmap(p.art, p.id, 480, int(480*h/w), th, artStill, 0)
+		}
+	}
 	if a.thumbs == nil {
 		a.thumbs = map[string]*ui.Bitmap{}
 	}
 	b, ok := a.thumbs[p.id]
 	if !ok {
 		b = ui.NewBitmap(p.render(104, 72, 0.5))
+		if p.scene != nil {
+			b.Pixelated()
+		}
 		a.thumbs[p.id] = b
 	}
-	return b
+	return bitmapThumb(b)
+}
+
+// bitmapThumb returns what draws a thumbnail that is a bitmap, nil for
+// none yet.
+func bitmapThumb(b *ui.Bitmap) func(*ui.Painter, float32, float32) *ui.Bitmap {
+	if b == nil {
+		return nil
+	}
+	return func(*ui.Painter, float32, float32) *ui.Bitmap { return b }
 }
 
 // customThumb returns the little picture of the user's own background,

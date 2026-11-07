@@ -61,12 +61,12 @@ func TestDrift(t *testing.T) {
 	}
 }
 
-// TestMovingBackground plays Campfire while the settings move the
+// TestMovingBackground plays the Rainy City while the settings move the
 // background, and keeps it still otherwise.
 func TestMovingBackground(t *testing.T) {
 	saved := prefs
 	t.Cleanup(func() { prefs, moveOnCPU = saved, false })
-	prefs = settings{FontSize: defaultFontSize, Background: "lex:campfire"}
+	prefs = settings{FontSize: defaultFontSize, Background: "lex:rain"}
 	moveOnCPU = true
 	a, tt := newTestApp(t)
 	waitFor(t, tt, "the background", func() bool { return a.bg != nil && a.bg.bmp != nil })
@@ -80,6 +80,17 @@ func TestMovingBackground(t *testing.T) {
 	if a.drift < 900*time.Millisecond || a.scene == nil || a.scene.step < int64((sceneStill+0.9)*sceneFPS) {
 		t.Fatalf("after a second of moving, the drift is %v and the scene %+v", a.drift, a.scene)
 	}
+	// An art moves too, its steps painted off the main thread.
+	prefs.Background = "lex:ribbons"
+	tt.Frame()
+	start := int64(artTime(a.drift) * ribbons.fps)
+	for i := 0; i < 50 && (a.art == nil || a.art.step < start+5); i++ {
+		time.Sleep(10 * time.Millisecond)
+		tt.Advance(100 * time.Millisecond)
+	}
+	if a.art == nil || a.art.step < start+5 {
+		t.Errorf("Ribbons did not move: %+v", a.art)
+	}
 	// Stopped, it stays where it was.
 	prefs.MovingBackground = false
 	tt.Frame()
@@ -88,4 +99,52 @@ func TestMovingBackground(t *testing.T) {
 	if a.drift != d {
 		t.Errorf("the drift went on from %v to %v, stopped", d, a.drift)
 	}
+}
+
+// TestArts paints the abstract backgrounds in a dark and a light theme:
+// in the theme's colors, the same for the same time, another a step
+// later, and painted again only when the step, the theme or the size
+// changes.
+func TestArts(t *testing.T) {
+	dark, light := themeByID("aurora"), themeByID("aurora-light")
+	n := 0
+	for _, p := range patterns {
+		if p.art == nil {
+			continue
+		}
+		n++
+		var v artView
+		a := v.bitmap(p.art, p.id, 640, 360, dark, artStill, 0)
+		still := append([]byte(nil), v.bufs[v.cur].img.Pix...)
+		if v.bitmap(p.art, p.id, 640, 360, dark, artStill+0.1/p.art.fps, 0) != a || v.step != int64(artStill*p.art.fps) {
+			t.Errorf("%s painted again within a step", p.id)
+		}
+		v.bitmap(p.art, p.id, 640, 360, dark, artStill+2, 0)
+		if bytes.Equal(v.bufs[v.cur].img.Pix, still) {
+			t.Errorf("%s is the same two seconds later", p.id)
+		}
+		// The light theme's: lighter on average than the dark one's.
+		var w artView
+		w.bitmap(p.art, p.id, 640, 360, light, artStill, 0)
+		if lum(w.bufs[w.cur].img.Pix) < lum(still)+100 {
+			t.Errorf("%s in Aurora Light is as dark as in Aurora", p.id)
+		}
+		var again artView
+		again.bitmap(p.art, p.id, 640, 360, dark, artStill, 0)
+		if !bytes.Equal(again.bufs[again.cur].img.Pix, still) {
+			t.Errorf("%s paints its still frame two ways", p.id)
+		}
+	}
+	if n != 2 {
+		t.Errorf("%d arts", n)
+	}
+}
+
+// lum is the mean of the red, green and blue of pixels, from 0 to 255.
+func lum(pix []byte) float64 {
+	sum := 0
+	for i := 0; i < len(pix); i += 4 {
+		sum += int(pix[i]) + int(pix[i+1]) + int(pix[i+2])
+	}
+	return float64(sum) / float64(len(pix)/4*3)
 }

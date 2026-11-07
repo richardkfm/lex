@@ -148,6 +148,10 @@ type App struct {
 	scene   *sceneView
 	drift   time.Duration
 	driftAt time.Time
+	// art is the canvas of the abstract background (art.go), and
+	// artThumbs those of their thumbnails in the settings, by id.
+	art       *artView
+	artThumbs map[string]*artView
 
 	// shownTab is the tab the last frame showed, at shownAt among the
 	// tabs, and tabDir the way the tab shown now came from: 1 from the

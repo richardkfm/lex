@@ -318,140 +318,6 @@ func fall(x0, y0, v, amp, wind, rate, at, t float64) (int, int) {
 	return int(x), int(y)
 }
 
-// The Campfire: a fire burning under a night sky of a few stars, between
-// hills and pines, its light flickering on the ground, embers rising.
-
-var campfire = func() *scene {
-	sky := []rgb{hexRGB("#06051a"), hexRGB("#0d0a27"), hexRGB("#181033"), hexRGB("#291539"), hexRGB("#3a1a3b")}
-	far, near, ground, deep := hexRGB("#251a3d"), hexRGB("#160e26"), hexRGB("#130b15"), hexRGB("#0b060c")
-	treeBody := hexRGB("#0a0610")
-	ridge := func(x int) int {
-		return 94 + int(16*noise(float64(x)/40, 0, 3)+6*noise(float64(x)/11, 0, 4))
-	}
-	hill := func(x int) int {
-		return 118 + int(8*noise(float64(x)/30, 5, 6)+3*noise(float64(x)/8, 5, 7))
-	}
-	groundTop := func(x int) int { return 134 + int(2.5*noise(float64(x)/22, 9, 8)) }
-	skyStars := stars(100, 0.007, 20)
-	// The fire's foot, left of the middle, where a split down the middle
-	// of the window would leave it in a gap.
-	const fx, fy = 116, 151
-	fireLight := []rgb{hexRGB("#24110f"), hexRGB("#3a1912"), hexRGB("#5a2614"), hexRGB("#7e3717")}
-	skyLight := []rgb{hexRGB("#3a1a3b"), hexRGB("#4c1f3a"), hexRGB("#622638")}
-	flame := []rgb{hexRGB("#a0231a"), hexRGB("#ea4d1b"), hexRGB("#ff951f"), hexRGB("#ffd247"), hexRGB("#fff3c4")}
-	ember := []rgb{hexRGB("#fff0a6"), hexRGB("#ffb238"), hexRGB("#ec5a1e"), hexRGB("#8c2a19")}
-	logBark, logEnd, logCore := hexRGB("#4d301d"), hexRGB("#8a5d3b"), hexRGB("#c48b55")
-	stone, stoneLit := hexRGB("#2f2a36"), hexRGB("#5e4b4b")
-	return &scene{
-		base: func(f pixels) {
-			f.gradient(0, 136, sky...)
-			f.drawStars(skyStars, hexRGB("#5d5590"), hexRGB("#d9d1ff"), 0, false)
-			for x := range sceneW {
-				for y := ridge(x); y < sceneH; y++ {
-					f.set(x, y, far)
-				}
-				for y := hill(x); y < sceneH; y++ {
-					f.set(x, y, near)
-				}
-				gt := groundTop(x)
-				for y := gt; y < sceneH; y++ {
-					f.set(x, y, ground)
-					f.dither(x, y, deep, float64(y-gt)/float64(sceneH-gt)*1.2)
-				}
-			}
-			for _, t := range []struct{ x, base, h int }{
-				{8, 146, 58}, {25, 142, 44}, {42, 147, 64}, {58, 139, 28},
-				{196, 137, 20}, {214, 141, 36}, {234, 147, 62}, {254, 143, 46},
-				{274, 147, 66}, {294, 141, 40}, {312, 147, 56},
-			} {
-				f.pine(t.x, t.base, t.h, treeBody, nil)
-			}
-		},
-		frame: func(f pixels, t float64) {
-			flicker := 0.78 + 0.22*noise(t*6, 0.5, 9)
-			f.drawStars(skyStars, hexRGB("#5d5590"), hexRGB("#d9d1ff"), t, true)
-			// The fire's light: on the sky above it, and on the ground.
-			f.glow(fx, fy-14, 46, 34, 0.9*flicker, skyLight, func(x, y int) bool { return y < hill(x) && y >= ridge(x)-6 })
-			f.glow(fx, fy, 96, 26, flicker, fireLight, func(x, y int) bool { return y >= groundTop(x) })
-			// The stones round the fire, lit on the side facing it.
-			for i := range 9 {
-				a := math.Pi * (0.05 + 0.9*float64(i)/8)
-				sx, sy := fx+int(18*math.Cos(a+math.Pi)), fy+2+int(4*math.Sin(a))
-				for dx := range 4 {
-					f.set(sx+dx-1, sy, stone)
-					f.set(sx+dx-1, sy+1, stone)
-				}
-				f.dither(sx, sy, stoneLit, flicker)
-				f.dither(sx+1, sy, stoneLit, flicker*0.8)
-			}
-			// The flames: three tongues swaying, torn by noise rising
-			// through them.
-			for y := fy - 46; y < fy; y++ {
-				h := float64(fy-y) / 44
-				for x := fx - 20; x <= fx+20; x++ {
-					heat := 0.0
-					for i, tg := range [3]struct{ off, w, tall, sway float64 }{{0, 11, 1, 2.3}, {-6, 7, 0.68, 3.1}, {6, 7, 0.74, 2.7}} {
-						if h >= tg.tall {
-							continue
-						}
-						up := h / tg.tall
-						c := float64(fx) + tg.off + math.Sin(t*tg.sway+h*4+float64(i))*2.4*up
-						side := 1 - math.Abs(float64(x)+0.5-c)/(tg.w*(1-up*0.85))
-						if side > 0 {
-							heat = max(heat, side*(1-up*up*0.7))
-						}
-					}
-					if heat <= 0 {
-						continue
-					}
-					heat *= 0.45 + 0.85*noise(float64(x)*0.32, float64(y)*0.3+t*9, 11)
-					heat *= flicker*0.25 + 0.85
-					switch {
-					case heat > 0.82:
-						f.set(x, y, flame[4])
-					case heat > 0.62:
-						f.set(x, y, flame[3])
-					case heat > 0.42:
-						f.set(x, y, flame[2])
-					case heat > 0.25:
-						f.set(x, y, flame[1])
-					case heat > 0.13:
-						f.set(x, y, flame[0])
-					}
-				}
-			}
-			// The logs, crossed, in front of the flames' foot.
-			for _, l := range [2][4]float64{{fx - 16, fy + 3, fx + 15, fy - 4}, {fx - 15, fy - 4, fx + 16, fy + 3}} {
-				n := int(math.Hypot(l[2]-l[0], l[3]-l[1]))
-				for i := 0; i <= n; i++ {
-					x := l[0] + (l[2]-l[0])*float64(i)/float64(n)
-					y := l[1] + (l[3]-l[1])*float64(i)/float64(n)
-					for d := -1; d <= 1; d++ {
-						f.set(int(x), int(y)+d, logBark)
-					}
-				}
-				for _, e := range [2][2]float64{{l[0], l[1]}, {l[2], l[3]}} {
-					f.set(int(e[0]), int(e[1])-1, logEnd)
-					f.set(int(e[0]), int(e[1]), logCore)
-					f.set(int(e[0]), int(e[1])+1, logEnd)
-				}
-			}
-			for x := fx - 9; x <= fx+9; x++ {
-				f.dither(x, fy-1, flame[1], 0.5*flicker)
-			}
-			// The embers, rising and fading.
-			for i := range 28 {
-				v := 9 + 14*hash(i, 1, 30)
-				life := 45 + 45*hash(i, 2, 30)
-				s := math.Mod(t*v/life+hash(i, 3, 30), 1)
-				x := float64(fx) + (hash(i, 4, 30)-0.5)*14 + math.Sin(t*1.9+float64(i))*3*s + (hash(i, 5, 30)-0.5)*26*s
-				y := float64(fy-6) - s*life
-				f.set(int(x), int(y), ember[min(int(s*4.4), 3)])
-			}
-		},
-	}
-}()
-
 // The Snowfall: a cabin among pines on a snowy night, its window lit and
 // its chimney smoking, under the moon, snow falling before it.
 
@@ -626,6 +492,240 @@ var snowfall = func() *scene {
 						f.set(x+1, y+1, flakeColor[layer])
 					}
 				}
+			}
+		},
+	}
+}()
+
+// The Rainy city: a skyline at night in the rain, its windows lighting up
+// and going dark, a sign flickering, an antenna's light blinking, the
+// street wet with the lights' reflections, rippling as the rain falls.
+
+var rainyCity = func() *scene {
+	sky := []rgb{hexRGB("#080919"), hexRGB("#0f1030"), hexRGB("#1a1640"), hexRGB("#2b1d48"), hexRGB("#3e2550")}
+	cloud := hexRGB("#141433")
+	farBody, farLit := hexRGB("#1c1936"), hexRGB("#4a3d5e")
+	nearBody, nearEdge, unlit := hexRGB("#0f0d1f"), hexRGB("#1b1833"), hexRGB("#1a1830")
+	warm, cool, tv := hexRGB("#ffcf7a"), hexRGB("#8fd3ff"), hexRGB("#c39cff")
+	walk, street := hexRGB("#1b1929"), hexRGB("#0b0a16")
+	pole, lamp, cone := hexRGB("#2a2740"), hexRGB("#ffe6a8"), hexRGB("#4d3d3c")
+	neon, neonDim, red := hexRGB("#ff4fa3"), hexRGB("#4a1f3c"), hexRGB("#ff3b3b")
+	rain := [3]rgb{hexRGB("#353d62"), hexRGB("#6f7aa8"), hexRGB("#a9b3dc")}
+	const curb = 146 // the top of the sidewalk; the street starts four pixels down
+	const road = curb + 4
+
+	type building struct{ x, w, top int }
+	var far, near []building
+	for x, i := -4, 0; x < sceneW; i++ {
+		w := 10 + int(16*hash(i, 1, 70))
+		far = append(far, building{x, w, 66 + int(40*hash(i, 2, 70))})
+		x += w - 1
+	}
+	for x, i := -6, 0; x < sceneW; i++ {
+		w := 22 + int(22*hash(i, 1, 71))
+		top := 40 + int(58*hash(i, 2, 71))
+		near = append(near, building{x, w, top})
+		x += w + int(5*hash(i, 3, 71))
+	}
+	// The windows of the near buildings: some always lit or dark, others
+	// switching now and then, each at its own pace.
+	type window struct {
+		x, y           int
+		col            rgb
+		lit, changes   bool
+		period, offset float64
+	}
+	var windows []window
+	for bi, b := range near {
+		for y := b.top + 4; y < curb-5; y += 5 {
+			for x := b.x + 3; x+2 <= b.x+b.w-3; x += 4 {
+				h := func(k int) float64 { return hash(x*7+bi, y, 72+k) }
+				col := warm
+				switch v := h(1); {
+				case v > 0.82:
+					col = tv
+				case v > 0.58:
+					col = cool
+				}
+				windows = append(windows, window{x: x, y: y, col: col, lit: h(2) < 0.36,
+					changes: h(3) < 0.2, period: 20 + 60*h(4), offset: 100 * h(5)})
+			}
+		}
+	}
+	tallest := near[0]
+	for _, b := range near {
+		if b.top < tallest.top && b.x > 20 && b.x+b.w < sceneW-20 {
+			tallest = b
+		}
+	}
+	sign := near[len(near)/2]
+	lamps := []int{58, 236}
+	type drop struct{ x, y, v float64 }
+	var drops [3][]drop
+	for layer, n := range [3]int{90, 60, 18} {
+		for i := range n {
+			drops[layer] = append(drops[layer], drop{x: sceneW * hash(i, 1, 80+layer), y: sceneH * hash(i, 2, 80+layer),
+				v: [3]float64{130, 200, 290}[layer] * (0.85 + 0.3*hash(i, 3, 80+layer))})
+		}
+	}
+	return &scene{
+		base: func(f pixels) {
+			f.gradient(0, road, sky...)
+			// Low clouds, lit faintly by the city.
+			for y := range 70 {
+				for x := range sceneW {
+					v := noise(float64(x)/38, float64(y)/9, 73)*0.7 + noise(float64(x)/13, float64(y)/5, 74)*0.3
+					f.dither(x, y, cloud, (v-0.5)*2.2*(1-float64(y)/70))
+				}
+			}
+			for _, b := range far {
+				for y := b.top; y < curb; y++ {
+					for x := b.x; x < b.x+b.w; x++ {
+						f.set(x, y, farBody)
+						if (x-b.x)%3 == 1 && (y-b.top)%4 == 2 && hash(x, y, 75) < 0.18 {
+							f.set(x, y, farLit)
+						}
+					}
+				}
+			}
+			for _, b := range near {
+				for y := b.top; y < curb; y++ {
+					for x := b.x; x < b.x+b.w; x++ {
+						f.set(x, y, nearBody)
+					}
+					f.set(b.x, y, nearEdge)
+				}
+				for x := b.x; x < b.x+b.w; x++ {
+					f.set(x, b.top, nearEdge)
+				}
+			}
+			for _, w := range windows {
+				for dx := range 2 {
+					for dy := range 2 {
+						f.set(w.x+dx, w.y+dy, unlit)
+					}
+				}
+			}
+			// An antenna on the tallest building, a water tower on another.
+			ax := tallest.x + tallest.w/2
+			for y := tallest.top - 12; y < tallest.top; y++ {
+				f.set(ax, y, nearEdge)
+			}
+			tower := near[(len(near)/2+2)%len(near)]
+			tx := tower.x + tower.w/3
+			for y := tower.top - 8; y < tower.top-3; y++ {
+				for x := tx; x < tx+7; x++ {
+					f.set(x, y, nearEdge)
+				}
+			}
+			for y := tower.top - 3; y < tower.top; y++ {
+				f.set(tx+1, y, nearEdge)
+				f.set(tx+5, y, nearEdge)
+			}
+			// The sidewalk, and the street lamps' poles.
+			for y := curb; y < road; y++ {
+				for x := range sceneW {
+					f.set(x, y, walk)
+				}
+			}
+			for _, lx := range lamps {
+				for y := curb - 30; y < curb; y++ {
+					f.set(lx, y, pole)
+				}
+				for x := lx - 1; x <= lx+3; x++ {
+					f.set(x, curb-31, pole)
+				}
+			}
+		},
+		frame: func(f pixels, t float64) {
+			for _, w := range windows {
+				lit := w.lit
+				if w.changes {
+					lit = hash(w.x, w.y+int(math.Floor((t+w.offset)/w.period)), 76) < 0.4
+				}
+				if !lit {
+					continue
+				}
+				for dx := range 2 {
+					for dy := range 2 {
+						f.set(w.x+dx, w.y+dy, w.col)
+					}
+				}
+			}
+			// The antenna's light, blinking, and the sign, flickering now
+			// and then.
+			if math.Mod(t, 1.6) < 0.5 {
+				ax := tallest.x + tallest.w/2
+				f.set(ax, tallest.top-13, red)
+				f.dither(ax-1, tallest.top-13, red, 0.5)
+				f.dither(ax+1, tallest.top-13, red, 0.5)
+			}
+			sx, sy := sign.x+sign.w-5, sign.top+10
+			on := hash(int(t*sceneFPS), 0, 77) > 0.04 && math.Mod(t, 23) > 0.6
+			for y := sy; y < sy+16; y++ {
+				for x := sx; x < sx+3; x++ {
+					c := neonDim
+					if on && (y-sy)%4 != 3 {
+						c = neon
+					}
+					f.set(x, y, c)
+				}
+				if on {
+					f.dither(sx-1, y, neon, 0.35)
+					f.dither(sx+3, y, neon, 0.35)
+				}
+			}
+			// The lamps and their light on the sidewalk.
+			for _, lx := range lamps {
+				f.set(lx+2, curb-30, lamp)
+				f.set(lx+3, curb-30, lamp)
+				for y := curb - 29; y < road+2; y++ {
+					spread := float64(y-(curb-29)) * 0.4
+					for x := lx + 2 - int(spread); x <= lx+3+int(spread); x++ {
+						f.dither(x, y, cone, 0.45-float64(y-(curb-29))/90)
+					}
+				}
+			}
+			// The street: dark and wet, the lights above it reflected,
+			// rippling.
+			for y := road; y < sceneH; y++ {
+				d := y - road
+				fade := 0.55 - float64(d)/float64(sceneH-road)*0.4
+				ripple := int(math.Round(math.Sin(float64(y)*1.3+t*4) * 1.2))
+				for x := range sceneW {
+					f.set(x, y, street)
+					sy := curb - 1 - d*2
+					if sy < 0 {
+						continue
+					}
+					src := f.at(min(max(x+ripple, 0), sceneW-1), sy)
+					lum := (float64(src[0]) + float64(src[1]) + float64(src[2])) / 765
+					if lum > 0.3 {
+						f.mix(x, y, src, fade*lum)
+					}
+				}
+			}
+			// The rain, slanting, in three layers, and splashes on the
+			// street.
+			for layer, list := range drops {
+				n := [3]int{2, 4, 6}[layer]
+				for _, d := range list {
+					y := math.Mod(d.y+t*d.v, sceneH+12) - 6
+					x := math.Mod(d.x-t*d.v*0.18+sceneW*20, sceneW)
+					for k := range n {
+						f.set(int(x+float64(k)*0.18), int(y)-k, rain[layer])
+					}
+				}
+			}
+			step := int(t * sceneFPS)
+			for i := range 26 {
+				if hash(i, step, 81) < 0.5 {
+					continue
+				}
+				x, y := int(sceneW*hash(i, step, 82)), road+1+int(float64(sceneH-road-2)*hash(i, step, 83))
+				f.set(x, y, rain[2])
+				f.dither(x-1, y, rain[1], 0.6)
+				f.dither(x+1, y, rain[1], 0.6)
 			}
 		},
 	}
