@@ -15,10 +15,12 @@ import (
 const patternPrefix = "lex:"
 
 // A pattern is one of Lex's backgrounds: draw paints it w×h pixels, at
-// scale pixels for each of a 1920 pixels wide screen's.
+// scale pixels for each of a 1920 pixels wide screen's, or it is a scene
+// of pixel art, which plays while the background moves (scenes.go).
 type pattern struct {
 	id, name string
 	draw     func(f *canvas, scale float64)
+	scene    *scene
 }
 
 var patterns = []pattern{
@@ -26,6 +28,8 @@ var patterns = []pattern{
 	{id: "dunes", name: "Dunes", draw: drawDunes},
 	{id: "dots", name: "Dots", draw: drawDots},
 	{id: "lines", name: "Lines", draw: drawLines},
+	{id: "campfire", name: "Campfire", scene: campfire},
+	{id: "snowfall", name: "Snowfall", scene: snowfall},
 }
 
 // patternOf returns the pattern a background names, if it names one.
@@ -46,8 +50,12 @@ func patternOf(background string) (pattern, bool) {
 // window, which it covers: larger than full HD, for the larger screens.
 const patternW, patternH = 2560, 1440
 
-// render paints the pattern w×h pixels.
+// render paints the pattern w×h pixels, or a scene's still frame, at its
+// own size.
 func (p pattern) render(w, h int, scale float64) *image.RGBA {
+	if p.scene != nil {
+		return p.scene.render(sceneStill)
+	}
 	f := newCanvas(w, h)
 	p.draw(f, scale)
 	return f.rgba()

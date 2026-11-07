@@ -58,14 +58,27 @@ var fontItalic []byte
 //go:embed assets/fonts/JetBrainsMono-BoldItalic.ttf
 var fontBoldItalic []byte
 
+// fontSymbols is Nerd Fonts' symbols alone, a cell wide (v3.4.0, MIT):
+// the icons of prompts such as Oh My Posh's and Starship's, of file
+// listings and of editors' status lines, in the Private Use Area, where
+// a font of the user's that has them goes first.
+//
+//go:embed assets/fonts/SymbolsNerdFontMono-Regular.ttf
+var fontSymbols []byte
+
 func registerFonts() {
 	for _, f := range [][]byte{fontRegular, fontBold, fontItalic, fontBoldItalic} {
 		ui.RegisterFont(f, "JetBrains Mono")
 	}
+	ui.RegisterFont(fontSymbols, symbolsFont)
 }
 
 // builtinFont is the font Lex embeds, the terminals' unless the settings
-// choose another of the system's.
-const builtinFont = "JetBrains Mono"
+// choose another of the system's, and symbolsFont the one of the icons
+// it falls back on.
+const (
+	builtinFont = "JetBrains Mono"
+	symbolsFont = "Symbols Nerd Font Mono"
+)
 
-var termFont = terminal.Font{Family: builtinFont + ", monospace", Size: 11.6, LineHeight: 1.0}
+var termFont = terminal.Font{Family: builtinFont + ", " + symbolsFont + ", monospace", Size: 11.6, LineHeight: 1.0}

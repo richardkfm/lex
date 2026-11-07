@@ -18,6 +18,7 @@ const (
 )
 
 func (a *App) view(c *ui.Context) {
+	a.frame++
 	a.services = c.Services()
 	a.runPosted()
 	k := colorsOf(c)
@@ -37,15 +38,21 @@ func (a *App) view(c *ui.Context) {
 		}
 		fit := prefs.backgroundFit()
 		root.Draw(func(p *ui.Painter, r ui.Rect) {
-			drawBackdrop(p, r, bg, fit)
+			a.drawBackground(p, r, bg, fit)
 			p.Fill(r, dim, 0)
 		})
 	} else {
 		root.Background(k.bg)
 	}
+	a.followTab()
 	root.Children(func() {
 		a.titleBar(c, k)
-		ui.Column(c).Grow(1).MinHeight(0).Padding(0, gap, gap, gap).Children(func() {
+		panes := ui.Column(c).Grow(1).MinHeight(0).Padding(0, gap, gap, gap)
+		if prefs.Animate {
+			// The tab going goes the other way of the one coming.
+			panes.ChildExit(tabExitFor(a.tabDir))
+		}
+		panes.Children(func() {
 			if t := a.tab(); t != nil {
 				a.tabContent(c, k, t)
 			}
@@ -215,80 +222,157 @@ func iconButton(c *ui.Context, k *colors, name, label string, size, iconSize flo
 	return b
 }
 
-// tabContent lays out the panes of a tab, or the one zoomed.
+// tabContent lays out the panes of a tab, or the one zoomed, in a box of
+// the tab's own. Every pane is a child of that box, placed by its share of
+// it (cells), and so is every divider, rather than nested in boxes of
+// their splits: splitting, closing and zooming then move panes among the
+// same siblings, which the settings can animate (motion.go). The box
+// keeps the tab's panes when another tab is chosen, so that the tab going
+// and the one coming slide past each other.
 func (a *App) tabContent(c *ui.Context, k *colors, t *Tab) {
-	if t.Zoom != nil {
-		a.paneCard(c, k, t, t.Zoom).Grow(1)
+	box := ui.Box(c.Key(t.ID)).Grow(1).MinHeight(0).MinWidth(0)
+	if prefs.Animate {
+		box.Transition(tabMotion(a.tabDir))
+	}
+	size := box.Bounds()
+	box.Children(func() {
+		if t.Zoom != nil {
+			a.paneCard(c, k, t, t.Zoom, cell{w: 1, h: 1})
+			return
+		}
+		t.Root.layout(cell{w: 1, h: 1}, func(p *Pane, r cell) {
+			a.paneCard(c, k, t, p, r)
+		}, func(n *Node, r cell) {
+			a.divider(c, k, n, r, size)
+		})
+	})
+}
+
+// cell is where a pane or a split goes in its tab's box: x, y, w and h are
+// shares of the box, and in tells, from the top clockwise, which of its
+// sides border another pane, from which half the gap between them keeps it.
+type cell struct {
+	x, y, w, h float32
+	in         [4]bool
+}
+
+// layout gives each pane of the node its cell, within r, and each split
+// its own, left to right and top to bottom.
+func (n *Node) layout(r cell, pane func(*Pane, cell), split func(*Node, cell)) {
+	if n.Pane != nil {
+		pane(n.Pane, r)
 		return
 	}
-	a.node(c, k, t, t.Root).Grow(1)
+	a, b := r, r
+	if n.Vertical {
+		a.h = r.h * n.Ratio
+		b.y, b.h = r.y+a.h, r.h-a.h
+		a.in[2], b.in[0] = true, true
+	} else {
+		a.w = r.w * n.Ratio
+		b.x, b.w = r.x+a.w, r.w-a.w
+		a.in[1], b.in[3] = true, true
+	}
+	n.A.layout(a, pane, split)
+	split(n, r)
+	n.B.layout(b, pane, split)
 }
 
-// node lays out a node of the tree of splits.
-func (a *App) node(c *ui.Context, k *colors, t *Tab, n *Node) ui.Element {
-	if n.Pane != nil {
-		return a.paneCard(c, k, t, n.Pane)
+// place puts an element at its cell in the tab's box.
+func place(e ui.Element, r cell) ui.Element {
+	const half = gap / 2
+	var m [4]float32
+	for i, in := range r.in {
+		if in {
+			m[i] = half
+		}
 	}
-	var box ui.Element
+	return e.Absolute().LeftPercent(r.x*100).TopPercent(r.y*100).
+		RightPercent(max(1-r.x-r.w, 0)*100).BottomPercent(max(1-r.y-r.h, 0)*100).
+		Margin(m[0], m[1], m[2], m[3])
+}
+
+// paneKey and dividerKey key the panes and the dividers in their tab's
+// box, apart from each other.
+type (
+	paneKey    int
+	dividerKey int
+)
+
+// divider draws the gap between the two sides of a split, which drags
+// to share the room between them: r is the split's cell, and size the
+// tab's box in the last frame.
+func (a *App) divider(c *ui.Context, k *colors, n *Node, r cell, size ui.Rect) {
+	const half = gap / 2
+	div := ui.Box(c.Key(dividerKey(n.ID))).Role(ui.RoleSplitter).Label("Divider").Absolute()
+	// Along the split, the divider spans the split's cell; across it, the
+	// gap at the line between the sides.
+	var top, bottom, left, right float32
+	if r.in[0] {
+		top = half
+	}
+	if r.in[2] {
+		bottom = half
+	}
+	if r.in[3] {
+		left = half
+	}
+	if r.in[1] {
+		right = half
+	}
 	if n.Vertical {
-		box = ui.Column(c.Key(n.ID))
+		at := r.y + r.h*n.Ratio
+		div.LeftPercent(r.x*100).RightPercent(max(1-r.x-r.w, 0)*100).TopPercent(at*100).BottomPercent(max(1-at, 0)*100).
+			Margin(-half, right, -half, left).Cursor(ui.CursorResizeRow)
 	} else {
-		box = ui.Row(c.Key(n.ID))
+		at := r.x + r.w*n.Ratio
+		div.LeftPercent(at*100).RightPercent(max(1-at, 0)*100).TopPercent(r.y*100).BottomPercent(max(1-r.y-r.h, 0)*100).
+			Margin(top, -half, bottom, -half).Cursor(ui.CursorResizeColumn)
 	}
-	box.MinWidth(0).MinHeight(0).AlignItems(ui.Stretch)
-	bounds := box.Bounds()
-	// The tree may change as its panes build, as a split: build the
-	// children it has now.
-	first, second, ratio := n.A, n.B, n.Ratio
-	box.Children(func() {
-		a.node(c, k, t, first).Grow(ratio).Basis(0).MinWidth(0).MinHeight(0)
-		div := ui.Box(c.Key("divider")).Role(ui.RoleSplitter).Label("Divider")
+	if prefs.Animate {
+		div.Transition(a.motion(dividerMotion))
+	}
+	if div.Dragging() || div.Pressed() {
+		a.dragged = a.frame
+	}
+	if dx, dy, ok := div.Dragged(); ok {
+		total, d := size.W*r.w, dx
 		if n.Vertical {
-			div.Height(gap).Cursor(ui.CursorResizeRow)
-		} else {
-			div.Width(gap).Cursor(ui.CursorResizeColumn)
+			total, d = size.H*r.h, dy
 		}
-		if dx, dy, ok := div.Dragged(); ok {
-			total := bounds.W - gap
-			d := dx
-			if n.Vertical {
-				total, d = bounds.H-gap, dy
-			}
-			if total > 0 {
-				n.Ratio = min(max(n.Ratio+d/total, 0.08), 0.92)
-				a.changed()
-			}
-		}
-		if div.DoubleClicked() {
-			n.Ratio = 0.5
+		if total > 0 {
+			n.Ratio = min(max(n.Ratio+d/total, 0.08), 0.92)
 			a.changed()
 		}
-		// The divider under the pointer is a line along the gap, in the
-		// second color, and in the accent while it moves.
-		if div.Hovered() || div.Dragging() || div.Pressed() {
-			col := k.hover.Alpha(0.6)
-			if div.Dragging() || div.Pressed() {
-				col = k.accent.Alpha(0.7)
-			}
-			div.Draw(func(p *ui.Painter, r ui.Rect) {
-				if n.Vertical {
-					p.Fill(ui.Rect{X: r.X, Y: r.Y + r.H/2 - 1, W: r.W, H: 2}, col, 1)
-				} else {
-					p.Fill(ui.Rect{X: r.X + r.W/2 - 1, Y: r.Y, W: 2, H: r.H}, col, 1)
-				}
-			})
+	}
+	if div.DoubleClicked() {
+		n.Ratio = 0.5
+		a.changed()
+	}
+	// The divider under the pointer is a line along the gap, in the
+	// second color, and in the accent while it moves.
+	if div.Hovered() || div.Dragging() || div.Pressed() {
+		col := k.hover.Alpha(0.6)
+		if div.Dragging() || div.Pressed() {
+			col = k.accent.Alpha(0.7)
 		}
-		a.node(c, k, t, second).Grow(1 - ratio).Basis(0).MinWidth(0).MinHeight(0)
-	})
-	return box
+		div.Draw(func(p *ui.Painter, r ui.Rect) {
+			if n.Vertical {
+				p.Fill(ui.Rect{X: r.X, Y: r.Y + r.H/2 - 1, W: r.W, H: 2}, col, 1)
+			} else {
+				p.Fill(ui.Rect{X: r.X + r.W/2 - 1, Y: r.Y, W: 2, H: r.H}, col, 1)
+			}
+		})
+	}
 }
 
-// paneCard draws a pane: a flat card with a header over its terminal, in
-// a hairline rim, brighter round the focused pane, whose glyph in the
-// header takes the accent.
-func (a *App) paneCard(c *ui.Context, k *colors, t *Tab, p *Pane) ui.Element {
+// paneCard draws a pane at its cell of the tab's box: a flat card with a
+// header over its terminal, in a hairline rim, brighter round the focused
+// pane, whose glyph in the header takes the accent. While the settings
+// animate panes, it moves to its cell (paneMotion).
+func (a *App) paneCard(c *ui.Context, k *colors, t *Tab, p *Pane, r cell) ui.Element {
 	focused := t.Focus == p
-	card := ui.Column(c.Key(p.ID)).Radius(cardR).Clip().MinWidth(0).MinHeight(0)
+	card := place(ui.Column(c.Key(paneKey(p.ID))), r).Radius(cardR).Clip()
 	border := k.cardBorder
 	if focused {
 		border = k.cardBorderFocused
@@ -307,27 +391,60 @@ func (a *App) paneCard(c *ui.Context, k *colors, t *Tab, p *Pane) ui.Element {
 		}
 	}
 	card.Background(a.overImage(face)).Border(1, border)
-	card.Transition(ui.ElementTransition{Colors: true, Duration: 160 * time.Millisecond})
+	if prefs.Animate {
+		card.Transition(a.motion(paneMotion))
+	} else {
+		card.Transition(ui.ElementTransition{Colors: true, Duration: 160 * time.Millisecond})
+	}
+	// While the card moves, what it holds keeps the size it had, clipped
+	// by the card or short of it, and takes the new one once the card is
+	// there: the terminal would have its program redraw at each size on
+	// the way, and a shell its prompt. (In a parent that moves, an element
+	// with a Transition of its own, as the header's buttons, would also
+	// go to where it ends at once.)
+	moving := prefs.Animate && card.Transitioning() && p.inner.W > 0
+	// A pane coming in, as the new side of a split or the others of a
+	// zoom undone, shows under the panes moving to make room for it, which
+	// uncover it as it fades in.
+	if p.built != a.frame-1 {
+		p.entered = c.Now()
+	}
+	p.built = a.frame
+	if prefs.Animate {
+		if since := c.Now().Sub(p.entered); since < paneMotion.Duration {
+			card.ZIndex(-1)
+			c.After(paneMotion.Duration - since)
+		}
+	}
 	hovered := card.Hovered()
 	card.Children(func() {
-		a.paneHeader(c, k, t, p, focused, hovered, tn)
-		body := ui.Box(c).Grow(1).MinHeight(0).Padding(0, 5, 6, 5)
-		body.Children(func() {
-			if p.term == nil {
-				return
-			}
-			tv := terminal.View(c, p.term).Fill()
-			if a.focusReq == p && a.tab() == t {
-				tv.Focus()
-				a.focusReq = nil
-			}
-			if tv.Focused() && t.Focus != p {
-				t.setFocus(p)
-				a.changed()
-			}
-			if tv.Focused() {
-				p.attention = false
-			}
+		inner := ui.Column(c).MinWidth(0).MinHeight(0)
+		if moving {
+			inner.Size(p.inner.W, p.inner.H).Shrink(0)
+		} else {
+			inner.Grow(1)
+			p.inner = inner.Bounds()
+		}
+		inner.Children(func() {
+			a.paneHeader(c, k, t, p, focused, hovered, tn)
+			body := ui.Box(c).Grow(1).MinHeight(0).Padding(0, 5, 6, 5)
+			body.Children(func() {
+				if p.term == nil {
+					return
+				}
+				tv := terminal.View(c, p.term).Fill()
+				if a.focusReq == p && a.tab() == t {
+					tv.Focus()
+					a.focusReq = nil
+				}
+				if tv.Focused() && t.Focus != p {
+					t.setFocus(p)
+					a.changed()
+				}
+				if tv.Focused() {
+					p.attention = false
+				}
+			})
 		})
 	})
 	p.bounds = card.Bounds()

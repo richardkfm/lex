@@ -63,9 +63,16 @@ type Pane struct {
 	// attention marks a pane that rang the bell or whose program finished
 	// while it was out of sight; seen clears it.
 	attention bool
-	// bounds is where the pane's card was in the last frame.
+	// bounds is where the pane's card was in the last frame, and inner how
+	// large its content was the last time it was not moving, which it
+	// keeps while it moves.
 	bounds ui.Rect
-	closed bool
+	inner  ui.Rect
+	// built is the frame that last built the pane, and entered when it
+	// came into the tab's box, as a split's new side or after a zoom.
+	built   int
+	entered time.Time
+	closed  bool
 	// restored tells that the session was made anew for a pane of a
 	// saved layout whose session was gone.
 	restored bool
@@ -135,6 +142,26 @@ type App struct {
 	// thumbs are the little pictures of the backgrounds the settings
 	// offer, by pattern id, or "file:" and a picture's path.
 	thumbs map[string]*ui.Bitmap
+	// scene plays the background when it is one of Lex's scenes
+	// (scenes.go). drift is how long the background has moved, and
+	// driftAt the frame it last moved in, zero while it is still.
+	scene   *sceneView
+	drift   time.Duration
+	driftAt time.Time
+
+	// shownTab is the tab the last frame showed, at shownAt among the
+	// tabs, and tabDir the way the tab shown now came from: 1 from the
+	// right, -1 from the left (motion.go).
+	shownTab *Tab
+	shownAt  int
+	tabDir   float32
+	// frame counts the frames built, and dragged is the last in which a
+	// divider was dragged.
+	frame, dragged int
+
+	// ompPath is where the settings found oh-my-posh, once ompAsked.
+	ompPath  string
+	ompAsked bool
 }
 
 func (a *App) post(fn func()) {
@@ -203,7 +230,7 @@ func (a *App) newPane(dir string, cols, rows int) *Pane {
 	if cols <= 0 {
 		cols, rows = 80, 24
 	}
-	info, err := a.client.Create(rex.CreateOptions{Dir: dir, Cols: cols, Rows: rows})
+	info, err := a.client.Create(rex.CreateOptions{Dir: dir, Cols: cols, Rows: rows, Prompt: prefs.prompt()})
 	if err != nil {
 		log.Printf("creating a session: %v", err)
 		a.err = err.Error()

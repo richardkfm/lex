@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -92,17 +93,29 @@ func (a *App) loadBackground(path string, blur int, key string, gen int64) {
 	case a.bgGen.Load() != gen:
 		return
 	default:
-		img := src.img
-		if blur > 0 {
-			img = blurred(img, float64(blur))
-		}
-		b.bmp = ui.NewBitmap(img)
+		b.bmp = backdropBitmap(path, src.img, blur)
 	}
 	a.laterService(func() {
 		if a.bgKey == key {
 			a.bg = b
 		}
 	})
+}
+
+// backdropBitmap returns the bitmap of a background's picture, blurred by
+// blur DIPs: a scene's pixel art (scenes.go) shows its pixels as squares
+// unless it is blurred.
+func backdropBitmap(path string, img *image.RGBA, blur int) *ui.Bitmap {
+	if p, ok := patternOf(path); ok && p.scene != nil {
+		if blur > 0 {
+			return ui.NewBitmap(blurredScene(img, blur))
+		}
+		return ui.NewBitmap(img).Pixelated()
+	}
+	if blur > 0 {
+		img = blurred(img, float64(blur))
+	}
+	return ui.NewBitmap(img)
 }
 
 // backgroundSource returns the picture at path, decoded and shrunk, from
@@ -115,7 +128,8 @@ func (a *App) backgroundSource(path string) *bgSource {
 	}
 	s := &bgSource{path: path}
 	if p, ok := patternOf(path); ok {
-		s.img, s.w, s.h = p.render(patternW, patternH, patternW/1920.0), patternW, patternH
+		s.img = p.render(patternW, patternH, patternW/1920.0)
+		s.w, s.h = s.img.Bounds().Dx(), s.img.Bounds().Dy()
 	} else {
 		s.img, s.w, s.h, s.err = decodePicture(path)
 	}
@@ -212,6 +226,72 @@ func boxBlur(src, dst []uint8, lines, length, r, stride, step int) {
 			}
 		}
 	}
+}
+
+// drawBackground draws the background over r: still, or, while the
+// settings move it, drifting slowly, a little larger than the window so
+// that its edges never show, and playing when it is one of Lex's scenes.
+// It moves while the window has the focus, as Ghostty's animated shaders
+// do by default, and keeps still while the system asks for less motion
+// or the window draws without a GPU, where drawing it all the time would
+// cost too much.
+func (a *App) drawBackground(p *ui.Painter, r ui.Rect, b *backdrop, fit string) {
+	if !a.backgroundMoves(p) {
+		a.driftAt = time.Time{}
+		drawBackdrop(p, r, b, fit)
+		return
+	}
+	// The drift's clock runs only while the background moves, so that it
+	// goes on from where it stopped, rather than jumping.
+	now := p.Now()
+	if !a.driftAt.IsZero() {
+		a.drift += min(max(now.Sub(a.driftAt), 0), 100*time.Millisecond)
+	}
+	a.driftAt = now
+	p.AnimationFrameRate(30)
+	shown := b
+	if pt, ok := patternOf(b.path); ok && pt.scene != nil {
+		f := *b
+		f.bmp = a.sceneBitmap(pt, a.drift)
+		shown = &f
+	}
+	z, dx, dy := driftAt(a.drift, r)
+	p.Transform(ui.Scaling(z, z).Then(ui.Translation(dx, dy)), r.X+r.W/2, r.Y+r.H/2, func() {
+		drawBackdrop(p, r, shown, fit)
+	})
+}
+
+// backgroundMoves tells whether the background moves in this frame.
+func (a *App) backgroundMoves(p *ui.Painter) bool {
+	return prefs.MovingBackground && a.focusedWin && !p.Preferences().ReduceMotion && (p.Accelerated() || moveOnCPU)
+}
+
+// moveOnCPU moves the background without a GPU too, for tests.
+var moveOnCPU = false
+
+// The drift: the background, driftZoom larger than the window, pans
+// across the room that leaves on either side, along a Lissajous figure
+// whose sides take driftX and driftY to sweep, so that it seems to wander
+// rather than go back and forth: a few DIPs a second. It grows to that
+// size over driftGrow, from the still background.
+const (
+	driftZoom = 0.07
+	driftX    = 97 * time.Second
+	driftY    = 131 * time.Second
+	driftGrow = 3 * time.Second
+)
+
+// driftAt returns how the background over r is scaled, around r's
+// center, and then moved, d into the drift.
+func driftAt(d time.Duration, r ui.Rect) (zoom, dx, dy float32) {
+	grow := smooth(min(d.Seconds()/driftGrow.Seconds(), 1))
+	zoom = float32(1 + driftZoom*grow)
+	// What the zoom adds on either side, less a little, so that no edge
+	// shows at the turns.
+	mx, my := float64(r.W)*driftZoom*grow/2*0.9, float64(r.H)*driftZoom*grow/2*0.9
+	dx = float32(mx * math.Sin(2*math.Pi*d.Seconds()/driftX.Seconds()))
+	dy = float32(my * math.Sin(2*math.Pi*d.Seconds()/driftY.Seconds()))
+	return zoom, dx, dy
 }
 
 // drawBackdrop draws the picture over r as the settings fit it.

@@ -82,6 +82,8 @@ func (a *App) settingsPanel(c *ui.Context, k *colors) {
 		a.themeSettings(c, k)
 		ui.Box(c).Height(1).Background(k.sep)
 		a.backgroundSettings(c, k)
+		ui.Box(c).Height(1).Background(k.sep)
+		a.motionSettings(c, k)
 	}
 	ui.Box(c).Height(1).Background(k.sep)
 	ui.Text(c, "Saved in "+tildePath(settingsPath())).FontSize(11).TextColor(k.textFaint).
@@ -240,6 +242,27 @@ func (a *App) backgroundSettings(c *ui.Context, k *colors) {
 	}
 }
 
+// motionSettings draws the switches of the window's animations, both off
+// unless asked for: panes and tabs moving into place, and the background
+// drifting, with Lex's scenes playing.
+func (a *App) motionSettings(c *ui.Context, k *colors) {
+	ui.Text(c, "Motion").FontSize(12.5).TextColor(k.text)
+	if toggleRow(c, k, "Animate panes and tabs", "Panes glide into place as they split, close and zoom, and tabs slide in and out", prefs.Animate) {
+		a.changeLook(func(s *settings) { s.Animate = !s.Animate })
+	}
+	hint := "The background drifts slowly, and Campfire and Snowfall play. The window then draws all the time, which costs some battery."
+	if prefs.Background == "" {
+		hint = "For a background: it drifts slowly, and Campfire and Snowfall play."
+	}
+	if toggleRow(c, k, "Moving background", hint, prefs.MovingBackground) {
+		a.changeLook(func(s *settings) { s.MovingBackground = !s.MovingBackground })
+	}
+	if (prefs.Animate || prefs.MovingBackground) && c.Preferences().ReduceMotion {
+		ui.Text(c, "The system asks for less motion, so Lex keeps still: what comes and goes fades.").
+			FontSize(11.5).TextColor(k.textFaint)
+	}
+}
+
 // paneSettings draws the pane tints: the switch of them all, how
 // strongly they show, and the switch of each kind, in its color.
 func (a *App) paneSettings(c *ui.Context, k *colors) {
@@ -337,6 +360,32 @@ func (a *App) textSettings(c *ui.Context, k *colors) {
 	if toggleRow(c, k, "Ligatures", "The font's coding ligatures, as → ≠ ≥, where it has them", !prefs.NoLigatures) {
 		a.changeSettings(func(s *settings) { s.NoLigatures = !s.NoLigatures })
 	}
+	ui.Box(c).Height(1).Background(k.sep)
+	a.promptSettings(c, k)
+}
+
+// promptSettings draws the switch of the Oh My Posh prompt, and whether
+// Lex finds oh-my-posh.
+func (a *App) promptSettings(c *ui.Context, k *colors) {
+	if toggleRow(c, k, "Oh My Posh prompt", "New panes style the prompt in Lex's theme, two lines with the folder, the git branch and the time, after your shell's own configuration. Bash, zsh, fish and PowerShell; your files stay as they are.", prefs.OhMyPosh) {
+		a.changeLook(func(s *settings) { s.OhMyPosh = !s.OhMyPosh })
+		a.ompAsked = false
+	}
+	if !prefs.OhMyPosh {
+		return
+	}
+	if !a.ompAsked {
+		a.ompAsked = true
+		go func() {
+			path := findOhMyPosh()
+			a.laterService(func() { a.ompPath = path })
+		}()
+	}
+	note, col := "Panes open now keep their prompt: new ones take it.", k.textFaint
+	if a.ompPath == "" {
+		note, col = "Lex does not find oh-my-posh. Install it (ohmyposh.dev): until a shell finds it on its PATH, the shell keeps its own prompt.", k.attention
+	}
+	ui.Text(c, note).FontSize(11.5).TextColor(col)
 }
 
 // fontPicker draws the font of the terminals ("term") or of the rest of
@@ -414,6 +463,9 @@ func (a *App) fontList(c *ui.Context, k *colors, which, current string) {
 		for _, f := range a.fonts {
 			if which == "term" && !f.Monospaced && !a.fontAll || q != "" && !strings.Contains(strings.ToLower(f.Name), q) {
 				continue
+			}
+			if f.Name == symbolsFont {
+				continue // icons only, which every font falls back on
 			}
 			e := fontEntry{name: f.Name, value: f.Name}
 			switch {

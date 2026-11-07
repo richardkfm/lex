@@ -74,6 +74,18 @@ type settings struct {
 	// NoNotify keeps a long command that finishes while the window is in
 	// the background from posting a notification.
 	NoNotify bool `json:"noNotify,omitempty"`
+
+	// Animate moves panes into place as they split, close and zoom, and
+	// slides tabs in and out (motion.go). MovingBackground drifts the
+	// background slowly and plays Lex's animated scenes (scenes.go). Both
+	// are off unless asked for, and nothing moves while the system asks
+	// for less motion.
+	Animate          bool `json:"animate,omitempty"`
+	MovingBackground bool `json:"movingBackground,omitempty"`
+
+	// OhMyPosh styles the prompt of new panes' shells with Oh My Posh, in
+	// Lex's theme, after the shells' own configuration (prompt.go).
+	OhMyPosh bool `json:"ohMyPosh,omitempty"`
 }
 
 const (
@@ -177,12 +189,21 @@ func (s settings) paneOpacity() float32 {
 }
 
 // termFamily is the family of the terminals' text, with the embedded
-// font and the system's monospaced one after it for what it lacks.
+// fonts, of text and of icons, and the system's monospaced one after it
+// for what it lacks.
 func (s settings) termFamily() string {
 	if s.Font == "" || s.Font == builtinFont {
-		return builtinFont + ", monospace"
+		return builtinFont + ", " + symbolsFont + ", monospace"
 	}
-	return s.Font + ", " + builtinFont + ", monospace"
+	return s.Font + ", " + builtinFont + ", " + symbolsFont + ", monospace"
+}
+
+// prompt is the prompt the settings ask new sessions to style.
+func (s settings) prompt() string {
+	if s.OhMyPosh {
+		return rex.PromptOhMyPosh
+	}
+	return ""
 }
 
 // lineHeight is the rows' height the settings ask for, within reason.
