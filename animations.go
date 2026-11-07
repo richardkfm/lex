@@ -10,11 +10,12 @@ import (
 
 // Animation panes: a pane that plays an animation in place of a terminal,
 // which Lex draws itself on a grid of the terminals' cells, as a program
-// of terminal art would: each cell two pixels high, as the half blocks
-// ▀ ▄ make them, and characters over them for the details, as rain, stars
-// and letters. An animation is drawn from the time and the grid's size
-// alone, so that any frame draws at once and the pane may take any size.
-// The palette opens one beside the focused pane ("Animation: Helix"), the
+// of terminal art would: each cell eight pixels, two across and four
+// down, as braille's dots, and characters over them for the details, as
+// stars, spores and birds. An animation is drawn from the time and the
+// grid's size alone, so that any frame draws at once and the pane may
+// take any size.
+// The palette opens one beside the focused pane ("Animation: Aurora"), the
 // pane's header switches between them, and the layout keeps them. They
 // play while they show, and hold still while the system asks for less
 // motion.
@@ -32,7 +33,7 @@ type animation struct {
 
 // animations are the animations, in the order the palette and the
 // header's arrows go through them.
-var animations = []*animation{helixAnim, neonCityAnim, solarpunkAnim, saharaAnim}
+var animations = []*animation{duneSeaAnim, neonGridAnim, gardenCityAnim, helixAnim, auroraAnim}
 
 // animationOf returns the animation of id, the first for one Lex does not
 // know, as of a layout of a later version.
@@ -90,13 +91,26 @@ func mixRGB(a, b rgb, k float64) rgb {
 	}
 }
 
+// designCols×designRows cells are what the scenes are composed on, and
+// drawn in the pixels of: a pane of another size centers them across and
+// shows more round them, of the sky above mostly, or less of their edges.
+const designCols, designRows = 64, 16
+
 // grid is a frame of an animation being painted: cols×rows cells, w×h
-// pixels, two to a cell, one above the other, and characters over cells.
+// pixels, two to a cell across and four down, about square in a cell of
+// the terminals' fonts, as braille's dots, and characters over cells.
+// Scenes paint it in the design's pixels, whose origin is ox, oy pixels
+// into it: it spans the design's pixels from x0 to x1 across and y0 to y1
+// down. Its colors add up in px, as light does, and come to img once
+// painted (finish).
 type grid struct {
-	cols, rows int
-	w, h       int
-	img        *image.RGBA
-	glyphs     []glyph
+	cols, rows     int
+	w, h           int
+	ox, oy         int
+	x0, x1, y0, y1 float64
+	px             []float32
+	img            *image.RGBA
+	glyphs         []glyph
 }
 
 // glyph is a character over a cell, in a color.
@@ -107,76 +121,119 @@ type glyph struct {
 }
 
 func newGrid(cols, rows int) *grid {
-	return &grid{cols: cols, rows: rows, w: cols, h: rows * 2, img: image.NewRGBA(image.Rect(0, 0, cols, rows*2))}
+	g := &grid{cols: cols, rows: rows, w: cols * 2, h: rows * 4}
+	dc, dr := cols-designCols, rows-designRows
+	ox, oy := dc/2, dr/2
+	if dr > 0 {
+		oy = dr - dr/3 // two rows above for one below
+	}
+	g.ox, g.oy = ox*2, oy*4
+	g.x0, g.x1 = float64(-g.ox), float64(g.w-g.ox)
+	g.y0, g.y1 = float64(-g.oy), float64(g.h-g.oy)
+	g.px = make([]float32, g.w*g.h*3)
+	g.img = image.NewRGBA(image.Rect(0, 0, g.w, g.h))
+	return g
 }
 
-// reset clears the grid's characters, for the next frame.
-func (g *grid) reset() { g.glyphs = g.glyphs[:0] }
+// wd and hd are how many of the design's pixels the grid spans, across
+// and down, and area how many times the design's it is.
+func (g *grid) wd() float64   { return g.x1 - g.x0 }
+func (g *grid) hd() float64   { return g.y1 - g.y0 }
+func (g *grid) area() float64 { return g.wd() * g.hd() / (designCols * 2 * designRows * 4) }
 
-func (g *grid) in(x, y int) bool { return x >= 0 && y >= 0 && x < g.w && y < g.h }
+// paint paints the frame of an at t: its pixels unpainted until it paints
+// them, which finish leaves clear, and no characters.
+func (g *grid) paint(an *animation, t float64, pal animPalette) {
+	g.glyphs = g.glyphs[:0]
+	nan := float32(math.NaN())
+	for i := range g.px {
+		g.px[i] = nan
+	}
+	an.draw(g, t, pal)
+	g.finish()
+}
+
+// finish brings the pixels to img.
+func (g *grid) finish() {
+	for i, j := 0, 0; i < len(g.px); i, j = i+3, j+4 {
+		if math.IsNaN(float64(g.px[i])) {
+			g.img.Pix[j], g.img.Pix[j+1], g.img.Pix[j+2], g.img.Pix[j+3] = 0, 0, 0, 0
+			continue
+		}
+		g.img.Pix[j], g.img.Pix[j+1], g.img.Pix[j+2], g.img.Pix[j+3] = uint8(g.px[i]+0.5), uint8(g.px[i+1]+0.5), uint8(g.px[i+2]+0.5), 255
+	}
+}
+
+// pix returns where the pixel of the design at (x, y) is in px, if in the
+// grid.
+func (g *grid) pix(x, y float64) (int, bool) {
+	ix, iy := int(math.Floor(x))+g.ox, int(math.Floor(y))+g.oy
+	if ix < 0 || iy < 0 || ix >= g.w || iy >= g.h {
+		return 0, false
+	}
+	return (iy*g.w + ix) * 3, true
+}
 
 // set paints the pixel at (x, y).
-func (g *grid) set(x, y int, c rgb) {
-	if !g.in(x, y) {
-		return
+func (g *grid) set(x, y float64, c rgb) {
+	if i, ok := g.pix(x, y); ok {
+		g.px[i], g.px[i+1], g.px[i+2] = float32(c[0]), float32(c[1]), float32(c[2])
 	}
-	o := g.img.PixOffset(x, y)
-	g.img.Pix[o], g.img.Pix[o+1], g.img.Pix[o+2], g.img.Pix[o+3] = c[0], c[1], c[2], 255
 }
 
-// at returns the color of the pixel at (x, y).
-func (g *grid) at(x, y int) rgb {
-	x, y = min(max(x, 0), g.w-1), min(max(y, 0), g.h-1)
-	o := g.img.PixOffset(x, y)
-	return rgb{g.img.Pix[o], g.img.Pix[o+1], g.img.Pix[o+2]}
+// get returns the color of the pixel at (x, y), of the nearest in the
+// grid for one out of it.
+func (g *grid) get(x, y float64) rgb {
+	x = min(max(x, g.x0), g.x1-1)
+	y = min(max(y, g.y0), g.y1-1)
+	i, ok := g.pix(x, y)
+	if !ok || math.IsNaN(float64(g.px[i])) {
+		return rgb{}
+	}
+	return rgb{uint8(g.px[i] + 0.5), uint8(g.px[i+1] + 0.5), uint8(g.px[i+2] + 0.5)}
 }
 
 // mix lays c over the pixel at (x, y), as opaque as a.
-func (g *grid) mix(x, y int, c rgb, a float64) {
-	if g.in(x, y) && a > 0 {
-		g.set(x, y, mixRGB(g.at(x, y), c, a))
+func (g *grid) mix(x, y float64, c rgb, a float64) {
+	if a <= 0 {
+		return
+	}
+	if i, ok := g.pix(x, y); ok {
+		k := float32(min(a, 1))
+		g.px[i] += (float32(c[0]) - g.px[i]) * k
+		g.px[i+1] += (float32(c[1]) - g.px[i+1]) * k
+		g.px[i+2] += (float32(c[2]) - g.px[i+2]) * k
 	}
 }
 
-// dither paints c at (x, y) where a passes the pixel's threshold in a 4×4
-// Bayer matrix: a share a of an area's pixels take it, evenly spread, as
-// pixel art shades.
-func (g *grid) dither(x, y int, c rgb, a float64) {
-	if a > bayer4(x, y) {
-		g.set(x, y, c)
-	}
-}
-
-// rect paints the pixels from (x0, y0) to (x1, y1), excluded.
-func (g *grid) rect(x0, y0, x1, y1 int, c rgb) {
-	for y := max(y0, 0); y < min(y1, g.h); y++ {
-		for x := max(x0, 0); x < min(x1, g.w); x++ {
+// sky paints the rows above y1 in the colors stops, from the design's top
+// to y1, the first above its top, as a pane taller than the design shows.
+func (g *grid) sky(y1 float64, stops ...rgb) {
+	n := float64(len(stops) - 1)
+	for y := g.y0; y < min(y1, g.y1); y++ {
+		k := min(max(y/max(y1-1, 1)*n, 0), n)
+		i := min(int(k), len(stops)-2)
+		c := mixRGB(stops[i], stops[i+1], k-float64(i))
+		for x := g.x0; x < g.x1; x++ {
 			g.set(x, y, c)
 		}
 	}
 }
 
-// gradient paints rows y0 to y1, excluded, in the colors stops, top to
-// bottom, a row a shade: at pixels as large as a cell's half, a dither
-// would show as a checkerboard.
-func (g *grid) gradient(y0, y1 int, stops ...rgb) {
-	n := len(stops) - 1
-	for y := max(y0, 0); y < min(y1, g.h); y++ {
-		t := float64(y-y0) / float64(max(y1-y0-1, 1)) * float64(n)
-		i := min(int(t), n-1)
-		c := mixRGB(stops[i], stops[i+1], t-float64(i))
-		for x := range g.w {
-			g.set(x, y, c)
-		}
+// fill paints every pixel c.
+func (g *grid) fill(c rgb) {
+	for i := 0; i < len(g.px); i += 3 {
+		g.px[i], g.px[i+1], g.px[i+2] = float32(c[0]), float32(c[1]), float32(c[2])
 	}
 }
 
-// disc paints a disc of radius r round (cx, cy).
-func (g *grid) disc(cx, cy, r float64, c rgb) {
-	for y := int(cy - r - 1); y <= int(cy+r+1); y++ {
-		for x := int(cx - r - 1); x <= int(cx+r+1); x++ {
-			if math.Hypot(float64(x)+0.5-cx, float64(y)+0.5-cy) <= r {
-				g.set(x, y, c)
+// disc lays a disc of radius r round (cx, cy), as opaque as a, its edge
+// smoothed.
+func (g *grid) disc(cx, cy, r float64, c rgb, a float64) {
+	for y := math.Floor(cy - r - 1); y <= cy+r+1; y++ {
+		for x := math.Floor(cx - r - 1); x <= cx+r+1; x++ {
+			if d := math.Hypot(x+0.5-cx, y+0.5-cy); d <= r+0.5 {
+				g.mix(x, y, c, a*min(max(r+0.5-d, 0), 1))
 			}
 		}
 	}
@@ -184,43 +241,100 @@ func (g *grid) disc(cx, cy, r float64, c rgb) {
 
 // glow lights the pixels round (cx, cy), out to r, toward c, at most a.
 func (g *grid) glow(cx, cy, r float64, c rgb, a float64) {
-	for y := int(cy - r); y <= int(cy+r); y++ {
-		for x := int(cx - r); x <= int(cx+r); x++ {
-			if d := math.Hypot(float64(x)+0.5-cx, float64(y)+0.5-cy) / r; d < 1 {
+	for y := math.Floor(cy - r); y <= cy+r; y++ {
+		for x := math.Floor(cx - r); x <= cx+r; x++ {
+			if d := math.Hypot(x+0.5-cx, y+0.5-cy) / r; d < 1 {
 				g.mix(x, y, c, a*(1-d)*(1-d))
 			}
 		}
 	}
 }
 
-// line paints a line of pixels from (x0, y0) to (x1, y1).
-func (g *grid) line(x0, y0, x1, y1 float64, c rgb) {
-	n := int(math.Max(math.Abs(x1-x0), math.Abs(y1-y0))) + 1
-	for i := 0; i <= n; i++ {
-		k := float64(i) / float64(n)
-		g.set(int(math.Floor(x0+(x1-x0)*k)), int(math.Floor(y0+(y1-y0)*k)), c)
+// ring lays a circle of radius r round (cx, cy).
+func (g *grid) ring(cx, cy, r float64, c rgb, a float64) {
+	for k := 0.0; k < r*6.3*2; k++ {
+		an := k / (r * 2)
+		g.splat(cx+r*math.Cos(an), cy+r*math.Sin(an), c, a)
 	}
 }
 
-// char puts the character ch over cell (col, row).
-func (g *grid) char(col, row int, ch rune, c rgb) {
-	if col >= 0 && row >= 0 && col < g.cols && row < g.rows {
-		g.glyphs = append(g.glyphs, glyph{col, row, ch, c})
+// splat lays a point at (x, y), between pixels, over the four round it.
+func (g *grid) splat(x, y float64, c rgb, a float64) {
+	fx, fy := x-0.5, y-0.5
+	ix, iy := math.Floor(fx), math.Floor(fy)
+	dx, dy := fx-ix, fy-iy
+	g.mix(ix, iy, c, a*(1-dx)*(1-dy))
+	g.mix(ix+1, iy, c, a*dx*(1-dy))
+	g.mix(ix, iy+1, c, a*(1-dx)*dy)
+	g.mix(ix+1, iy+1, c, a*dx*dy)
+}
+
+// aline lays a smooth line from (x0, y0) to (x1, y1).
+func (g *grid) aline(x0, y0, x1, y1 float64, c rgb, a float64) {
+	n := math.Ceil(math.Hypot(x1-x0, y1-y0)*1.5) + 1
+	for i := 0.0; i <= n; i++ {
+		k := i / n
+		g.splat(x0+(x1-x0)*k, y0+(y1-y0)*k, c, a)
 	}
 }
 
-// text puts s over the cells from (col, row) on, a character a cell.
-func (g *grid) text(col, row int, s string, c rgb) {
-	for _, ch := range s {
-		g.char(col, row, ch, c)
-		col++
+// char puts the character ch over the cell of the design at (col, row).
+func (g *grid) char(col, row float64, ch rune, c rgb) {
+	cl, rw := int(math.Floor(col))+g.ox/2, int(math.Floor(row))+g.oy/4
+	if cl >= 0 && rw >= 0 && cl < g.cols && rw < g.rows {
+		g.glyphs = append(g.glyphs, glyph{cl, rw, ch, c})
 	}
 }
 
-// bayer4 is the threshold of (x, y) in a 4×4 Bayer matrix, from 0 to 1.
-func bayer4(x, y int) float64 {
-	m := [16]float64{0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5}
-	return (m[(y&3)*4+x&3] + 0.5) / 16
+// cellOf returns the cell of the design over the pixel at (x, y).
+func cellOf(x, y float64) (float64, float64) { return math.Floor(x / 2), math.Floor(y / 4) }
+
+// stars puts stars over the cells above sky(x), x a pixel: dots, a few
+// crosses and sparkles, each twinkling at its pace, and a few fainter
+// between them.
+func (g *grid) stars(t, density float64, seed int, sky func(x float64) float64, dim, bright rgb) {
+	for row := range g.rows {
+		for col := range g.cols {
+			c, r := col-g.ox/2, row-g.oy/4
+			h := hash(c, r, seed)
+			if h > density || float64(r*4+3) >= sky(float64(c*2)) {
+				continue
+			}
+			b := 0.55 + 0.45*math.Sin(t*(0.8+2*hash(c, r, seed+1))+6.3*hash(c, r, seed+2))
+			switch {
+			case h < density*0.08:
+				g.char(float64(c), float64(r), '✦', mixRGB(dim, bright, b))
+			case h < density*0.22 && b > 0.5:
+				g.char(float64(c), float64(r), '+', mixRGB(dim, bright, b*0.8))
+			default:
+				g.char(float64(c), float64(r), '·', mixRGB(dim, bright, b*0.7))
+			}
+		}
+	}
+	for k := range int(40 * g.area()) {
+		x := math.Floor(g.x0 + g.wd()*hash(k, 1, seed+9))
+		y := math.Floor(g.y0 + (32-g.y0)*hash(k, 2, seed+9))
+		if y < sky(x)-2 {
+			g.mix(x, y, bright, 0.25+0.3*math.Sin(t*1.3+float64(k)))
+		}
+	}
+}
+
+// spans lays spans out along a row, from start to the right, i = 0, 1, …,
+// and to its left, i = -1, -2, …, as far as the grid goes: each of the
+// width and the gap after it size gives, laid by f. A pane wider than the
+// design shows more of them, where they were.
+func (g *grid) spans(start float64, size func(i int) (w, gap float64), f func(i int, x, w float64)) {
+	for i, x := 0, start; x < g.x1; i++ {
+		w, gap := size(i)
+		f(i, x, w)
+		x += w + gap
+	}
+	for i, x := -1, start; x > g.x0; i-- {
+		w, gap := size(i)
+		x -= w + gap
+		f(i, x, w)
+	}
 }
 
 // hash returns a number from 0 to 1 of the integers given, the same each
@@ -243,6 +357,11 @@ func noise(x, y float64, seed int) float64 {
 	return top + (bottom-top)*sy
 }
 
+// fbm is noise of three octaves.
+func fbm(x, y float64, seed int) float64 {
+	return noise(x, y, seed)*0.6 + noise(x*2.1, y*2.1, seed+1)*0.28 + noise(x*4.3, y*4.3, seed+2)*0.12
+}
+
 // wrap returns v within [0, n).
 func wrap(v, n float64) float64 {
 	v = math.Mod(v, n)
@@ -251,6 +370,9 @@ func wrap(v, n float64) float64 {
 	}
 	return v
 }
+
+// clamp returns v within [lo, hi].
+func clamp(v, lo, hi float64) float64 { return min(max(v, lo), hi) }
 
 // animPlayer plays an animation in a pane: the grid it paints, and the
 // bitmap of its pixels, in two by turns, as a bitmap takes its picture
@@ -280,8 +402,7 @@ func (pl *animPlayer) frame(an *animation, cols, rows int, t float64, th *theme)
 	pl.id, pl.theme, pl.cols, pl.rows, pl.step = an.id, th.id, cols, rows, step
 	pl.cur ^= 1
 	g := pl.grids[pl.cur]
-	g.reset()
-	an.draw(g, float64(step)/an.fps, paletteOf(th))
+	g.paint(an, float64(step)/an.fps, paletteOf(th))
 	if pl.bmp == nil {
 		pl.bmp = ui.NewBitmap(g.img).Pixelated()
 	} else {
@@ -297,20 +418,15 @@ func cellSize(p *ui.Painter) (float32, float32) {
 	return max(w, 4), max(h*termFont.LineHeight, 8)
 }
 
-// animHeight is about how many pixels high the scenes are drawn for, and
-// animWidth how many wide at least: a pane larger than twice that shows
-// them twice as large, its cells and characters too, and so on, rather
-// than as small scenes in a wide sky.
-const animHeight, animWidth = 46, 72
-
 // drawAnimation draws the animation of pane pn over r: its pixels, as
 // squares, filling r, and its characters over them, in the terminals'
-// font, centered in their cells.
+// font, centered in their cells. A pane twice the design's size or more
+// shows it twice as large, its cells and characters too, and so on.
 func (a *App) drawAnimation(p *ui.Painter, r ui.Rect, pn *Pane, th *theme) {
 	an := animationOf(pn.anim)
 	cw, ch := cellSize(p)
 	cols, rows := max(int(r.W/cw), 8), max(int(r.H/ch), 4)
-	scale := max(1, min(rows*2/animHeight, cols/animWidth))
+	scale := max(1, min(cols/designCols, rows/designRows))
 	cols, rows = max(cols/scale, 8), max(rows/scale, 4)
 	size := termFont.Size * float32(scale)
 	cw, ch = cw*float32(scale), ch*float32(scale)

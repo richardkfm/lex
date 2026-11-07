@@ -64,12 +64,14 @@ Linux and macOS.
   program redraws once. Nothing moves while the system asks for less
   motion.
 - **Animation panes**: the palette opens a pane beside the focused one
-  that plays a small scene in place of a terminal (*Animation: Sahara*,
-  *Neon City*, *Solarpunk*, *Helix*), which Lex draws on the terminal's
-  grid, two pixels to a cell and characters for the details, as terminal
-  art does. The arrows in its header switch scenes, it closes and zooms
-  as any pane, and the layout keeps it. It plays while it shows, and
-  holds still while the system asks for less motion.
+  that plays a scene in place of a terminal (*Animation: Dune Sea*,
+  *Neon Grid*, *Garden City*, *Helix*, *Aurora*), which Lex draws on the
+  terminal's grid, eight pixels to a cell, as braille's dots, and
+  characters for the details, as terminal art does. A larger pane shows
+  more of the place: more sky, more dunes, more towers. The arrows in its
+  header switch scenes, it closes and zooms as any pane, and the layout
+  keeps it. It plays while it shows, and holds still while the system
+  asks for less motion.
 - **An Oh My Posh prompt**, on asking (Text section): new panes'
   shells load your own configuration, and then
   [Oh My Posh](https://ohmyposh.dev), which you install, in Lex's theme:

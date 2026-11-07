@@ -6,756 +6,843 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// The animations an animation pane plays (animations.go): small scenes,
-// each composed round what it shows, on the ground of the pane's bottom
-// and centered in it, a larger pane showing more of the sky round them
-// rather than more of them. Their figures are drawn pixel by pixel
-// (sprite), and live a little: they walk, turn, blink, peek, sway and
-// fly, and lights flicker. Each is painted from the time and the pane's
-// size alone, w×h pixels, two to a cell, with characters over the cells.
+// The scenes an animation pane plays (animations.go): abstract places,
+// lit, and alive in small ways: sand drifts, traffic streams, water
+// falls, a helix turns, lights cross the sky. Each is composed on the
+// design's pixels and goes on past them in a larger pane: more sky, more
+// dunes, more skyline, more towers. Each is painted from the time and the
+// pane's size alone.
 
-// sprite paints art, rows of characters, its top left at (x, y): each
-// character a pixel of the color pal gives it, those it has none for
-// none; flip mirrors it left to right.
-func (g *grid) sprite(x, y int, art []string, pal map[byte]rgb, flip bool) {
-	for j, row := range art {
-		for i := 0; i < len(row); i++ {
-			c, ok := pal[row[i]]
-			if !ok {
-				continue
-			}
-			if flip {
-				g.set(x+len(row)-1-i, y+j, c)
-			} else {
-				g.set(x+i, y+j, c)
-			}
+// pick returns which of n a number from 0 to 1 picks.
+func pick(h float64, n int) int { return min(int(h*float64(n)), n-1) }
+
+// flock flies n birds over the sky for dur seconds of every period, from
+// start cells in, gap cells apart, in rows two and three: each a v as its
+// wings beat down, a ^ as they come up.
+func (g *grid) flock(t, period, dur float64, n int, start, gap float64, c rgb) {
+	fs := wrap(t, period)
+	if fs >= dur {
+		return
+	}
+	span := g.wd() / (designCols * 2)
+	for k := range n {
+		fk := float64(k)
+		ch := '^'
+		if int(math.Floor(t*3+fk))&1 == 1 {
+			ch = 'v'
 		}
+		g.char(g.x0/2+start+fs*6*span+fk*gap, 2+float64(k%2), ch, c)
 	}
 }
 
-// twinkles puts stars over the cells whose pixels are above sky(col):
-// dots, a few brighter, each twinkling at its pace.
-func (g *grid) twinkles(t float64, density float64, seed int, sky func(x int) int, dim, bright rgb) {
-	for row := range g.rows {
-		for col := range g.cols {
-			h := hash(col, row, seed)
-			if h > density || row*2+1 >= sky(col) {
-				continue
-			}
-			b := 0.55 + 0.45*math.Sin(t*(0.8+2*hash(col, row, seed+1))+6.3*hash(col, row, seed+2))
-			switch {
-			case h < density*0.08:
-				g.char(col, row, '✦', mixRGB(dim, bright, b))
-			case h < density*0.2 && b > 0.5:
-				g.char(col, row, '+', mixRGB(dim, bright, b*0.8))
-			default:
-				g.char(col, row, '·', mixRGB(dim, bright, b*0.7))
-			}
-		}
+// Dune Sea: dunes in four ranges to a setting sun, ringed in haze, the
+// air over them shimmering, sand blowing off their crests, the wind
+// ripples on them creeping, and a crescent moon over them.
+var duneSeaAnim = &animation{id: "dune-sea", name: "Dune Sea", fps: 15, tile: ui.Hex("#c4566a"), draw: drawDuneSea}
+
+// duneShape is the profile of dunes along u, a dune a unit: a long slope
+// up the wind, a short steep one down it.
+func duneShape(u float64) float64 {
+	u = wrap(u, 1)
+	if u < 0.68 {
+		return smooth(u / 0.68)
 	}
+	return 1 - smooth((u-0.68)/0.32)
 }
 
-// Sahara: a caravan crossing the crest of a dune at night under a large
-// moon, three camels with their riders, roped one to the next, their
-// tracks behind them; a fennec fox peeks over the dune in front now and
-// then, a star falls, sand blows off a crest.
-var saharaAnim = &animation{id: "sahara", name: "Sahara", fps: 12, tile: ui.Hex("#c27a3a"), draw: drawSahara}
+func drawDuneSea(g *grid, t float64, _ animPalette) {
+	const hz = 36.0
+	var (
+		night, dusk = hexRGB("#120e2c"), hexRGB("#2b1b4a")
+		crest, sand = hexRGB("#ffe2b8"), hexRGB("#ffe6c0")
+		horizon     = hexRGB("#f6a879")
+	)
+	g.sky(hz+4, night, dusk, hexRGB("#6a2c5a"), hexRGB("#c4566a"), hexRGB("#f08f63"), hexRGB("#ffd08a"))
+	g.stars(t, 0.07, 5, func(float64) float64 { return 18 }, hexRGB("#3a2f62"), hexRGB("#f2e9ff"))
+	g.glow(104, 9, 9, hexRGB("#9a90c8"), 0.3)
+	g.disc(104, 9, 3.6, hexRGB("#f6efd6"), 1)
+	g.disc(105.6, 8.2, 3.3, mixRGB(dusk, night, 0.5), 1)
 
-var (
-	camelArt = []string{
-		"............hhh.",
-		"...........hBBBm",
-		"...........BB...",
-		".....hhh...B....",
-		"....hBBBh..B....",
-		"...hBSSSBhBB....",
-		"..hBBSySBBBB....",
-		".tBBBBBBBBBB....",
-		".tBBBBBBBBB.....",
-		"..BBBBBBBB......",
+	const sx, sy = 40.0, hz - 2
+	for k := range 4 {
+		fk := float64(k)
+		g.ring(sx, sy, 15+fk*5+math.Sin(t*0.8+fk)*0.7, hexRGB("#ffd9a0"), 0.09-fk*0.018)
 	}
-	riderArt = []string{
-		"..T..",
-		".TTT.",
-		"..f..",
-		".RRR.",
-		"RRRRR",
-	}
-	camelPal = map[byte]rgb{'B': hexRGB("#2a2131"), 'h': hexRGB("#7d6d8c"), 'm': hexRGB("#3e3242"), 't': hexRGB("#2a2131"),
-		'S': hexRGB("#7a2f44"), 'y': hexRGB("#c9a347"), 'T': hexRGB("#4a5aa6"), 'f': hexRGB("#5a4440"), 'R': hexRGB("#313a78")}
-	foxArt = []string{
-		".E.....E.",
-		".EE...EE.",
-		".EiF.FiE.",
-		"..FFFFF..",
-		"..FwFwF..",
-		"...FnF...",
-		"..FFFFF..",
-	}
-	foxPal = map[byte]rgb{'E': hexRGB("#8f7660"), 'i': hexRGB("#b07a72"), 'F': hexRGB("#a68a6e"), 'w': hexRGB("#f2eadc"), 'n': hexRGB("#2a2026")}
-)
-
-func drawSahara(g *grid, t float64, _ animPalette) {
-	W, H := g.w, g.h
-	cx := W / 2
-	fx := func(x int, a, f, p float64) float64 { return a * math.Sin(float64(x-cx)*f+p) }
-	far := func(x int) int { return H - 25 + int(fx(x, 3, 0.07, 1)+fx(x, 1.5, 0.19, 0)) }
-	mid := func(x int) int { return H - 15 + int(fx(x, 2.2, 0.045, 0.5)+fx(x, 1, 0.13, 2)) }
-	near := func(x int) int { return H - 5 + int(fx(x, 1.8, 0.09, 3)+fx(x, 0.8, 0.23, 0)) }
-	g.gradient(0, H, hexRGB("#060918"), hexRGB("#0c1130"), hexRGB("#1a1b40"), hexRGB("#2c2548"))
-	g.twinkles(t, 0.07, 400, far, hexRGB("#3a3d6a"), hexRGB("#dcdcff"))
-	// The moon, its light round it.
-	mx, my := float64(cx+22), math.Max(float64(H-40), 8)
-	g.glow(mx, my, 18, hexRGB("#3d3f72"), 0.55)
-	g.glow(mx, my, 10, hexRGB("#8d89b8"), 0.35)
-	g.disc(mx, my, 5.6, hexRGB("#efe6c8"))
-	g.disc(mx-2, my-1, 1.3, hexRGB("#d6cba8"))
-	g.disc(mx+2, my+2, 1, hexRGB("#d6cba8"))
-	g.set(int(mx)+1, int(my)-3, hexRGB("#d6cba8"))
-	// Now and then a star falls.
-	if s := wrap(t, 10); s < 0.9 {
-		n := int(math.Floor(t / 10))
-		x0, y0 := float64(W)*(0.25+0.55*hash(n, 1, 401)), 2+5*hash(n, 2, 401)
-		hx, hy := x0-26*s/0.9, y0+9*s/0.9
-		for k := range 7 {
-			g.mix(int(hx+float64(k)*2.9), int(hy-float64(k)), hexRGB("#ffffff"), 1-float64(k)/7)
-		}
-	}
-	// The dunes, lit on the side of the moon, far to near.
-	dune := func(ridge func(int) int, lit, shade, crest rgb) {
-		for x := range W {
-			top := ridge(x)
-			c := lit
-			if ridge(x+1) < top {
-				c = shade
-			}
-			for y := top; y < H; y++ {
-				g.set(x, y, mixRGB(c, shade, float64(y-top)/18))
-			}
-			g.set(x, top, crest)
-		}
-	}
-	dune(far, hexRGB("#3d3558"), hexRGB("#2a2542"), hexRGB("#5a4f78"))
-	dune(mid, hexRGB("#4b3f62"), hexRGB("#332b4a"), hexRGB("#75668f"))
-	// The caravan, walking right along the crest, roped one to the next,
-	// its tracks behind it.
-	// It crosses the dune in front of the moon at the still frame.
-	lead := int(wrap((t-animStill)*2.2+float64(cx+38), float64(W+70))) - 18
-	for i := range 3 {
-		x := lead - i*19
-		feet := mid(x + 8)
-		top := feet - 13
-		for _, leg := range []struct{ x, ph float64 }{{3, 0}, {5, math.Pi}, {8, math.Pi}, {10, 0}} {
-			swing := math.Round(math.Sin(t*5+float64(i)*1.3+leg.ph) * 1.2)
-			hip := top + 10
-			for y := hip; y <= feet; y++ {
-				k := float64(y-hip) / float64(max(feet-hip, 1))
-				g.set(x+int(leg.x+swing*k), y, camelPal['B'])
-			}
-		}
-		g.sprite(x, top, camelArt, camelPal, false)
-		g.sprite(x+3, top-5, riderArt, camelPal, false)
-		if i > 0 {
-			// The rope from this camel's head to the saddle ahead.
-			ax, ay := x+15, top+2
-			bx, by := lead-(i-1)*19+2, mid(lead-(i-1)*19+8)-7
-			for k := 0; k <= 8; k++ {
-				u := float64(k) / 8
-				g.set(int(float64(ax)+float64(bx-ax)*u), int(float64(ay)+float64(by-ay)*u+2*math.Sin(math.Pi*u)), hexRGB("#6f5f52"))
+	g.glow(sx, sy, 26, hexRGB("#ffbf7a"), 0.45)
+	sunTop, sunBottom := hexRGB("#fff0c4"), hexRGB("#ff9a5c")
+	for y := math.Floor(sy - 11); y <= sy+11; y++ {
+		for x := math.Floor(sx - 11); x <= sx+11; x++ {
+			if d := math.Hypot(x+0.5-sx, y+0.5-sy); d <= 11 {
+				g.mix(x, y, mixRGB(sunTop, sunBottom, (y-sy+11)/22), clamp(11.5-d, 0, 1))
 			}
 		}
 	}
-	for k := 1; k <= 16; k++ {
-		x := lead - 2*19 - 2*k
-		g.mix(x, mid(x), hexRGB("#332b4a"), 0.7*(1-float64(k)/16))
+	g.flock(t, 23, 9, 3, 4, 1.3, dusk)
+
+	layers := []struct {
+		base, amp, l, off float64
+		lit, shade        rgb
+		haze              float64
+	}{
+		{39, 3, 34, 0.1, hexRGB("#eaa27d"), hexRGB("#c47a62"), 0.45},
+		{44, 5, 46, 0.55, hexRGB("#e0905f"), hexRGB("#a85f45"), 0.28},
+		{51, 7, 60, 0.3, hexRGB("#d27b45"), hexRGB("#8c4a33"), 0.12},
+		{60, 9, 84, 0.8, hexRGB("#c1662f"), hexRGB("#6e3826"), 0},
 	}
-	// The fox, peeking over the near dune now and then, blinking.
-	foxX := cx + 18
-	rise := 0.0
-	s := wrap(t, 14)
-	switch {
-	case s > 6 && s < 6.6:
-		rise = (s - 6) / 0.6
-	case s >= 6.6 && s < 11:
-		rise = 1
-	case s >= 11 && s < 11.6:
-		rise = 1 - (s-11)/0.6
-	}
-	if rise > 0 {
-		art := foxArt
-		if s > 8.2 && s < 8.4 {
-			art = append([]string(nil), foxArt...)
-			art[4] = "..FFFFF.." // a blink
+	for k, l := range layers {
+		fk := float64(k)
+		ridge := func(x float64) float64 {
+			return l.base - l.amp*duneShape(x/l.l+l.off) - 1.2*math.Sin(x*0.07+fk*1.7)
 		}
-		g.sprite(foxX, near(foxX+4)-int(math.Round(6*rise)), art, foxPal, false)
-	}
-	dune(near, hexRGB("#5d4c69"), hexRGB("#3c3250"), hexRGB("#8a789e"))
-	// Sand blowing off the near crest.
-	for i := range 3 {
-		s := wrap(t*0.5+float64(i)*1.7, 6)
-		if s > 2 {
-			continue
-		}
-		x := int(wrap(float64(W)*hash(i, int(t/12), 402)+s*14, float64(W)))
-		g.char(x, (near(x)-2)/2, '~', mixRGB(hexRGB("#2c2548"), hexRGB("#a493b5"), 1-s/2))
-	}
-}
-
-// Neon City: a rooftop at night over the city, a figure leaning on its
-// railing, breathing out in the cold, a satellite dish turning slowly, an
-// air conditioner's fan spinning, a holographic koi swimming in the air
-// over the street, drones blinking past, the towers lit window by window.
-var neonCityAnim = &animation{id: "neon-city", name: "Neon City", fps: 15, tile: ui.Hex("#c2187a"), draw: drawNeonCity}
-
-var (
-	figureArt = []string{
-		"..hh...",
-		".hhhh..",
-		".hhss..",
-		"..ss...",
-		".CCCC..",
-		"CCCCCaa",
-		"CCCCC..",
-		"CCCCC..",
-		"CCCC...",
-		"CCCC...",
-		".CCC...",
-		".LL....",
-		".L.L...",
-		".bb.bb.",
-	}
-	figurePal = map[byte]rgb{'h': hexRGB("#1a1622"), 's': hexRGB("#b9887a"), 'C': hexRGB("#26243a"), 'a': hexRGB("#26243a"),
-		'L': hexRGB("#1c1b2a"), 'b': hexRGB("#121119")}
-	koiArt = [2][]string{{
-		"....dd.....",
-		"t..cmmcCCc.",
-		"TTcCCCCmCCe",
-		"t..cCCmCCc.",
-		"....ff.....",
-	}, {
-		"....dd.....",
-		"...cmmcCCc.",
-		"tTcCCCCmCCe",
-		"...cCCmCCc.",
-		"t...ff.....",
-	}}
-	koiPal = map[byte]rgb{'C': hexRGB("#7ff6ff"), 'c': hexRGB("#3fc9e6"), 'm': hexRGB("#ff6ad5"), 'd': hexRGB("#b98cff"),
-		'f': hexRGB("#b98cff"), 't': hexRGB("#ff8ae0"), 'T': hexRGB("#ff8ae0"), 'e': hexRGB("#ffffff")}
-	dishArt = [3][]string{{
-		".DD..",
-		"DdDD.",
-		"DdDDf",
-		"DdDD.",
-		".DD..",
-	}, {
-		"..D..",
-		".DDD.",
-		"DdddD",
-		"..f..",
-		"..s..",
-	}, {
-		"..DD.",
-		".DDdD",
-		"fDDdD",
-		".DDdD",
-		"..DD.",
-	}}
-	dishPal = map[byte]rgb{'D': hexRGB("#9aa0b8"), 'd': hexRGB("#5d6178"), 'f': hexRGB("#c7cbe0"), 's': hexRGB("#5d6178")}
-)
-
-func drawNeonCity(g *grid, t float64, _ animPalette) {
-	W, H := g.w, g.h
-	cx := W / 2
-	parapet := H - 11
-	g.gradient(0, H, hexRGB("#05061a"), hexRGB("#0d0a25"), hexRGB("#1c1036"), hexRGB("#35134b"))
-	g.twinkles(t, 0.025, 410, func(int) int { return H / 3 }, hexRGB("#2a2350"), hexRGB("#8f86c9"))
-	// The towers beyond the railing, their feet below it.
-	lit := []rgb{hexRGB("#ffc46b"), hexRGB("#7fdcff"), hexRGB("#ff7ad9")}
-	for x, i := cx-90, 0; x < W; i++ {
-		w := 5 + int(8*hash(i, 1, 411))
-		top := parapet - 6 - int(float64(min(H-12, 34))*hash(i, 2, 411))
-		body := mixRGB(hexRGB("#0e0c1c"), hexRGB("#1a1430"), hash(i, 3, 411))
-		for y := top; y < parapet; y++ {
-			for xx := x; xx < x+w; xx++ {
-				g.set(xx, y, body)
+		for x := g.x0; x < g.x1; x++ {
+			top, facing := ridge(x), ridge(x-1)-ridge(x+1)
+			for y := max(g.y0, math.Floor(top)); y < g.y1; y++ {
+				d := y - top
+				c := mixRGB(l.shade, l.lit, clamp(0.5+facing*0.9, 0, 1))
+				c = mixRGB(c, l.shade, d/22)
+				switch rip := math.Sin((d*0.62 + x*(0.11+fk*0.03) - t*(0.25+0.2*fk)) * 2.1); {
+				case rip > 0.55:
+					c = mixRGB(c, l.shade, 0.22+0.1*fk)
+				case rip < -0.85:
+					c = mixRGB(c, crest, 0.12)
+				}
+				g.set(x, y, mixRGB(c, horizon, l.haze))
 			}
-			g.set(x, y, mixRGB(body, hexRGB("#3b2a5e"), 0.5))
+			g.mix(x, math.Floor(top), crest, 0.55-l.haze*0.6)
 		}
-		for y := top + 2; y < parapet; y += 2 {
-			for xx := x + 1; xx < x+w-1; xx += 2 {
-				if hash(xx, y, 412) < 0.28 {
-					on := true
-					if hash(xx, y, 413) < 0.1 {
-						on = hash(xx, y+int(t/3), 414) < 0.5
-					}
-					if on {
-						g.set(xx, y, mixRGB(body, lit[int(hash(xx, y, 415)*3)], 0.35+0.6*hash(xx, y, 416)))
-					}
+		if k == 0 {
+			// The air shimmers over the far dunes.
+			row := make([]rgb, int(g.wd()))
+			for y := hz - 6; y < hz+2; y++ {
+				sh := math.Round(math.Sin(y*1.7+t*4) * 0.8)
+				if sh == 0 {
+					continue
+				}
+				for i := range row {
+					row[i] = g.get(g.x0+float64(i)-sh, y)
+				}
+				for i, c := range row {
+					g.set(g.x0+float64(i), y, c)
 				}
 			}
 		}
-		if hash(i, 4, 411) < 0.35 && hash(i, int(t*15), 417) > 0.04 {
-			c := lit[1+int(hash(i, 5, 411)*2)]
-			for y := top + 1; y < parapet; y++ {
-				g.set(x+w-1, y, c)
-			}
-		}
-		if hash(i, 6, 411) < 0.3 && wrap(t+hash(i, 7, 411)*3, 2) < 0.7 {
-			g.set(x+w/2, top-1, hexRGB("#ff3045"))
-		}
-		x += w + 1 + int(3*hash(i, 8, 411))
-	}
-	// The haze over the street.
-	for y := parapet - 8; y < parapet; y++ {
-		for x := range W {
-			g.mix(x, y, hexRGB("#3a1650"), 0.05*float64(y-parapet+8))
-		}
-	}
-	// Drones, blinking past.
-	for i := range 2 {
-		a := t*0.25 + float64(i)*3
-		x := float64(cx) + 34*math.Sin(a)
-		y := float64(parapet) - 18 - 8*float64(i) + 3*math.Sin(a*2)
-		g.rect(int(x)-1, int(y), int(x)+2, int(y)+1, hexRGB("#3a3d58"))
-		if wrap(t*2+float64(i), 1) < 0.5 {
-			g.set(int(x)-1, int(y), hexRGB("#ff4a5a"))
-		} else {
-			g.set(int(x)+1, int(y), hexRGB("#4aff9a"))
-		}
-	}
-	// The koi, swimming a slow loop in the air over the street, as a
-	// hologram: its rows alternately fainter, flickering now and then.
-	kx := float64(cx+4) + 18*math.Sin(t*0.32)
-	ky := float64(parapet) - 13 + 3*math.Sin(t*0.64)
-	left := math.Cos(t*0.32) < 0
-	alpha := 0.8
-	if hash(int(t*15), 0, 418) < 0.06 {
-		alpha = 0.3
-	}
-	art := koiArt[int(t*4)%2]
-	for j, row := range art {
-		for i := 0; i < len(row); i++ {
-			c, ok := koiPal[row[i]]
-			if !ok {
-				continue
-			}
-			x := int(kx) + i
-			if left {
-				x = int(kx) + len(row) - 1 - i
-			}
-			a := alpha
-			if (int(ky)+j)%2 == 1 {
-				a *= 0.6
-			}
-			g.mix(x, int(ky)+j, c, a)
-		}
-	}
-	for k := 1; k <= 3; k++ {
-		tx := float64(cx+4) + 18*math.Sin(t*0.32-float64(k)*0.12) + 5
-		ty := float64(parapet) - 11 + 3*math.Sin(t*0.64-float64(k)*0.24)
-		g.char(int(tx), int(ty)/2, '·', mixRGB(hexRGB("#1c1036"), hexRGB("#9ff6ff"), 0.8-float64(k)*0.2))
-	}
-	// The railing, at the far edge of the roof.
-	for x := range W {
-		g.set(x, parapet, hexRGB("#3d3952"))
-		g.set(x, parapet+1, hexRGB("#2a2738"))
-		g.set(x, parapet-5, hexRGB("#4b4763"))
-		if x%7 == 3 {
-			for y := parapet - 4; y < parapet; y++ {
-				g.set(x, y, hexRGB("#3a3650"))
+		if k >= 2 {
+			// Sand blows off the near crests.
+			for i := range int(26 * g.wd() / 128) {
+				x0 := g.x0 + g.wd()*hash(i, k, 7)
+				s := wrap(t*0.45+hash(i, k, 8), 1)
+				g.splat(x0+s*16, ridge(x0)-s*3+s*s*5, sand, (1-s)*0.55)
 			}
 		}
 	}
-	// The roof, wet, a puddle mirroring the koi's colors.
-	for y := parapet + 2; y < H; y++ {
-		for x := range W {
-			g.set(x, y, mixRGB(hexRGB("#141220"), hexRGB("#1d1a2b"), noise(float64(x)/5, float64(y)/2, 419)))
-		}
-	}
-	px, py := float64(cx+8), float64(H-3)
-	for y := int(py - 2); y <= int(py+2); y++ {
-		for x := int(px - 9); x <= int(px+9); x++ {
-			if math.Hypot((float64(x)-px)/9, (float64(y)-py)/2) < 1 {
-				k := 0.5 + 0.5*math.Sin(float64(x)*0.6+t*2)
-				g.set(x, y, mixRGB(hexRGB("#2a2140"), mixRGB(hexRGB("#ff6ad5"), hexRGB("#7ff6ff"), k), 0.35))
-			}
-		}
-	}
-	// The air conditioner, its fan spinning.
-	ax, ay := cx-30, H-9
-	g.rect(ax, ay, ax+9, ay+7, hexRGB("#383848"))
-	g.rect(ax, ay, ax+9, ay+1, hexRGB("#4a4a5c"))
-	g.rect(ax+2, ay+2, ax+7, ay+6, hexRGB("#1f1f2a"))
-	if int(t*12)%2 == 0 {
-		g.set(ax+3, ay+3, hexRGB("#5a5a6e"))
-		g.set(ax+5, ay+4, hexRGB("#5a5a6e"))
-	} else {
-		g.set(ax+5, ay+3, hexRGB("#5a5a6e"))
-		g.set(ax+3, ay+4, hexRGB("#5a5a6e"))
-	}
-	// The satellite dish on its mast, turning slowly, its light blinking.
-	dx := cx + 24
-	for y := H - 13; y < H-1; y++ {
-		g.set(dx+2, y, hexRGB("#4a4d62"))
-	}
-	g.sprite(dx, H-17, dishArt[[]int{0, 1, 2, 1}[int(wrap(t/3, 4))]], dishPal, false)
-	if wrap(t, 1.4) < 0.5 {
-		g.set(dx+2, H-18, hexRGB("#ff3045"))
-	}
-	// The figure, leaning on the railing, lit by the city: magenta from
-	// behind, cyan from the street; breathing out now and then.
-	fxx, fy := cx-10, H-14
-	fig := figureArt
-	if wrap(t, 11) < 2 {
-		fig = append([]string(nil), figureArt...)
-		fig[2] = ".hsss.." // turned toward the city
-	}
-	if int(t/1.2)%2 == 1 {
-		fig = append([]string(nil), fig...)
-		fig[10] = "..CCC.." // the coat, swaying
-	}
-	g.sprite(fxx, fy, fig, figurePal, false)
-	for j, row := range fig {
-		for i := 0; i < len(row); i++ {
-			if row[i] == '.' {
-				continue
-			}
-			if i == 0 || row[i-1] == '.' {
-				g.mix(fxx+i, fy+j, hexRGB("#c13fa0"), 0.45)
-			}
-			if i == len(row)-1 || row[i+1] == '.' {
-				g.mix(fxx+i, fy+j, hexRGB("#3fb7d9"), 0.4)
-			}
-		}
-	}
-	if s := wrap(t, 5); s < 1.6 {
-		for k := range 3 {
-			g.mix(fxx+5+int(s*3)+k, fy+2-int(s*2)-k/2, hexRGB("#c8c8e0"), 0.5*(1-s/1.6))
+	gust := hexRGB("#c1662f")
+	for i := range 3 {
+		if s := wrap(t*0.4+float64(i)*1.9, 6); s < 2 {
+			x := g.x0 + wrap(g.wd()*hash(i, int(math.Floor(t/15)), 9)+s*18, g.wd())
+			g.char(x/2, 12+float64(i%2), '~', mixRGB(gust, crest, 1-s/2))
 		}
 	}
 }
 
-// Solarpunk: a village in a great tree at dusk, homes on its branches,
-// one with a solar roof and a spinner turning, a rope bridge to the next
-// tree hung with lanterns, a gondola gliding up and down its cable, a
-// bird coming to land and flying off, a waterfall falling into a pond,
-// fireflies.
-var solarpunkAnim = &animation{id: "solarpunk", name: "Solarpunk", fps: 15, tile: ui.Hex("#2e9b57"), draw: drawSolarpunk}
+// Neon Grid: a city of towers at night, their windows lit and some
+// flickering, neon along their edges, a hologram turning over them, light
+// trails streaming along three roads, and rain on the street, which
+// mirrors it all.
+var neonGridAnim = &animation{id: "neon-grid", name: "Neon Grid", fps: 20, tile: ui.Hex("#c2187a"), draw: drawNeonGrid}
 
-func drawSolarpunk(g *grid, t float64, _ animPalette) {
-	W, H := g.w, g.h
-	cx := W / 2
-	gy := H - 5
-	tx := cx - 8
-	g.gradient(0, gy, hexRGB("#1d2a52"), hexRGB("#3e4580"), hexRGB("#8a6890"), hexRGB("#e0907a"), hexRGB("#ffcf92"))
-	g.twinkles(t, 0.03, 420, func(int) int { return gy / 3 }, hexRGB("#2e3a6e"), hexRGB("#e6e6ff"))
-	g.glow(float64(cx+30), float64(gy-3), 22, hexRGB("#ffd49a"), 0.45)
-	// The hills far off.
-	for x := range W {
-		top := gy - 7 - int(4*noise(float64(x)/14, 0, 421))
-		for y := top; y < gy; y++ {
-			g.set(x, y, mixRGB(hexRGB("#4a5578"), hexRGB("#3a4766"), float64(y-top)/6))
+func drawNeonGrid(g *grid, t float64, _ animPalette) {
+	const street = 52.0
+	var (
+		pink, cyan, amber = hexRGB("#ff3fa8"), hexRGB("#3fd9ff"), hexRGB("#ffb347")
+		red, dusk         = hexRGB("#ff3045"), hexRGB("#241a40")
+		lit               = [4]rgb{cyan, hexRGB("#ff4fd8"), amber, hexRGB("#c8c0ff")}
+	)
+	g.sky(street, hexRGB("#04040f"), hexRGB("#0a0920"), hexRGB("#1a0f33"), hexRGB("#2e1240"))
+	g.stars(t, 0.03, 15, func(float64) float64 { return 12 }, hexRGB("#231d45"), hexRGB("#9f96d9"))
+	for y := max(30, g.y0); y < street; y++ {
+		for x := g.x0; x < g.x1; x++ {
+			g.mix(x, y, mixRGB(pink, cyan, noise(x/30, t*0.1, 3)), 0.12*(y-30)/22)
 		}
 	}
-	// The ground, its flowers, and the pond, rippling.
-	for y := gy; y < H; y++ {
-		for x := range W {
-			g.set(x, y, mixRGB(hexRGB("#2f5d3a"), hexRGB("#244a2f"), float64(y-gy)/5))
+	towers := func(seed int, minW, maxW, lo, hi float64, body rgb, bright, pitch float64) {
+		g.spans(-3, func(i int) (float64, float64) {
+			return minW + math.Floor((maxW-minW)*hash(i, 1, seed)), 1 + math.Floor(3*hash(i, 8, seed))
+		}, func(i int, x, w float64) {
+			top := math.Floor(lo + (hi-lo)*hash(i, 2, seed))
+			b := mixRGB(body, dusk, hash(i, 3, seed)*0.4)
+			for y := top; y < street; y++ {
+				for xx := x; xx < x+w; xx++ {
+					g.set(xx, y, b)
+				}
+			}
+			for y := top + 2; y < street-1; y += pitch {
+				for xx := x + 1; xx < x+w-1; xx += 2 {
+					ix, iy := int(xx), int(y)
+					if hash(ix, iy, seed+1) > 0.32 {
+						continue
+					}
+					if hash(ix, iy, seed+2) < 0.1 && hash(ix, iy+int(math.Floor(t/4)), seed+3) >= 0.5 {
+						continue // out for now
+					}
+					g.set(xx, y, mixRGB(b, lit[pick(hash(ix, iy, seed+4), 4)], bright*(0.5+0.5*hash(ix, iy, seed+5))))
+				}
+			}
+			if hash(i, 4, seed) < 0.35 && hash(i, int(math.Floor(t*12)), seed+6) > 0.05 {
+				c := lit[pick(hash(i, 5, seed), 2)]
+				for y := top; y < street; y++ {
+					g.mix(x, y, c, bright)
+				}
+				for xx := x; xx < x+w; xx++ {
+					g.mix(xx, top, c, bright*0.8)
+				}
+			}
+			if top < lo+6 && wrap(t+float64(i)*0.7, 2) < 0.6 {
+				g.set(x+math.Floor(w/2), top-1, red)
+			}
+		})
+	}
+	towers(31, 5, 11, 12, 30, hexRGB("#161230"), 0.35, 3)
+
+	// The hologram: a wire octahedron, turning, ringed, over the towers.
+	const hx, hy, hr, tilt = 92.0, 13.0, 7.5, 0.45
+	a := t * 0.7
+	var pts [6][3]float64
+	for i, v := range [6][3]float64{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}} {
+		x1 := v[0]*math.Cos(a) + v[2]*math.Sin(a)
+		z1 := -v[0]*math.Sin(a) + v[2]*math.Cos(a)
+		y2 := v[1]*math.Cos(tilt) - z1*math.Sin(tilt)
+		z2 := v[1]*math.Sin(tilt) + z1*math.Cos(tilt)
+		pts[i] = [3]float64{hx + x1*hr, hy + y2*hr*0.9, z2}
+	}
+	flick := 1.0
+	if hash(int(math.Floor(t*12)), 0, 33) < 0.07 {
+		flick = 0.35
+	}
+	front, back := hexRGB("#9ff6ff"), hexRGB("#ff7ad9")
+	for _, e := range [12][2]int{{0, 2}, {0, 3}, {0, 4}, {0, 5}, {1, 2}, {1, 3}, {1, 4}, {1, 5}, {2, 4}, {4, 3}, {3, 5}, {5, 2}} {
+		p, q := pts[e[0]], pts[e[1]]
+		c := back
+		if p[2]+q[2] > 0 {
+			c = front
 		}
+		g.aline(p[0], p[1], q[0], q[1], c, 0.55*flick)
 	}
-	for i := range W / 6 {
-		x := int(float64(W) * hash(i, 1, 422))
-		g.set(x, gy+1+int(3*hash(i, 2, 422)), []rgb{hexRGB("#f2c94c"), hexRGB("#e88aa8"), hexRGB("#f4f1e8")}[i%3])
+	g.glow(hx, hy, 14, cyan, 0.12*flick)
+	for k := range 24 {
+		an := float64(k)/24*6.28 + t*0.4
+		a := 0.25
+		if math.Sin(an) > 0 {
+			a = 0.6
+		}
+		g.splat(hx+12*math.Cos(an), hy+9+2.4*math.Sin(an), back, a)
 	}
-	px, py := float64(cx+26), float64(H-2)
-	for y := gy; y < H; y++ {
-		for x := int(px - 11); x <= int(px+11); x++ {
-			if math.Hypot((float64(x)-px)/11, (float64(y)-py)/3) < 1 {
-				g.set(x, y, hexRGB("#3c78a6"))
+	towers(41, 7, 15, 22, 40, hexRGB("#0b0918"), 0.75, 2)
+
+	roads := []struct {
+		y, dir     float64
+		head, tail rgb
+		v          float64
+	}{
+		{42, 1, hexRGB("#fff4d6"), amber, 24},
+		{46, -1, hexRGB("#ff8a8a"), red, 18},
+		{49, 1, hexRGB("#c8faff"), cyan, 32},
+	}
+	asphalt := hexRGB("#2a2340")
+	for k, r := range roads {
+		fk := float64(k)
+		ry := func(x float64) float64 { return r.y + 1.8*math.Sin(x*0.03+fk*2) }
+		for x := g.x0; x < g.x1; x++ {
+			g.mix(x, ry(x), asphalt, 0.8)
+		}
+		for c := range int(math.Round(9 * g.wd() / 128)) {
+			p := g.x0 + wrap(g.wd()*hash(c, k, 34)+r.dir*r.v*t, g.wd()+30) - 15
+			for j := range 14 {
+				fj := float64(j)
+				x := p - r.dir*fj
+				g.splat(x, ry(x)-0.5, mixRGB(r.head, r.tail, fj/6), (1-fj/14)*0.8)
 			}
 		}
 	}
-	for k := range 2 {
-		r := wrap(t*2+float64(k)*2.5, 5)
-		for a := 0.0; a < math.Pi*2; a += 0.35 {
-			g.mix(int(px-6+r*1.6*math.Cos(a)), int(py+r*0.45*math.Sin(a)), hexRGB("#9fd0ee"), 0.6*(1-r/5))
+
+	wet := hexRGB("#07060f")
+	for y := max(street, g.y0); y < g.y1; y++ {
+		d := y - street
+		for x := g.x0; x < g.x1; x++ {
+			rip := math.Round(math.Sin(y*1.9+t*4+x*0.05) * (0.6 + d*0.08))
+			g.set(x, y, mixRGB(g.get(x+rip, street-1-d*1.6), wet, 0.45+d*0.035))
 		}
 	}
-	// The cliff at the right, and the waterfall down it.
-	wx := cx + 30
-	for y := gy - 18; y < gy+1; y++ {
-		for x := wx; x < wx+12; x++ {
-			g.set(x, y, mixRGB(hexRGB("#4c4760"), hexRGB("#635c78"), noise(float64(x)/2, float64(y)/2, 423)))
+	drop := hexRGB("#9fb4e8")
+	for k := range max(1, int(math.Round(5*g.wd()/128))) {
+		ph := t*1.2 + float64(k)*0.37
+		s := wrap(ph, 1.8)
+		x := g.x0 + g.wd()*hash(k, int(math.Floor(ph/1.8)), 35)
+		y := street + 3 + (g.y1-street-4)*hash(k, 9, 35)
+		for an := 0.0; an < 6.28; an += 0.3 {
+			g.splat(x+s*4*math.Cos(an), y+s*1.1*math.Sin(an), drop, 0.4*(1-s/1.8))
 		}
 	}
-	for x := wx; x < wx+12; x++ {
-		g.set(x, gy-19, hexRGB("#3f7a46"))
-	}
-	for y := gy - 18; y < H-2; y++ {
-		for x := wx - 3; x < wx; x++ {
-			k := int(wrap(float64(y)-t*14+float64(x), 5))
-			g.set(x, y, []rgb{hexRGB("#e6f6ff"), hexRGB("#a9dcf4"), hexRGB("#7fbde3"), hexRGB("#a9dcf4"), hexRGB("#cfeefc")}[k])
+	rain := hexRGB("#8fa3d6")
+	for k := range int(140 * g.area()) {
+		v := 70 + 50*hash(k, 1, 36)
+		x := g.x0 + wrap(g.wd()*hash(k, 2, 36)-t*v*0.25, g.wd())
+		y := g.y0 + wrap(g.hd()*hash(k, 3, 36)+t*v, g.hd())
+		for j := range 3 {
+			fj := float64(j)
+			g.mix(x+fj*0.25, y-fj, rain, 0.32-fj*0.08)
 		}
 	}
-	if int(t*6)%2 == 0 {
-		g.char(wx-4, (H-3)/2, '°', hexRGB("#e6f6ff"))
-	} else {
-		g.char(wx-1, (H-4)/2, '·', hexRGB("#e6f6ff"))
-	}
-	canopy := func(x, y, r float64) {
-		g.disc(x, y, r, hexRGB("#1f4a2e"))
-		g.disc(x-r*0.25, y-r*0.25, r*0.75, hexRGB("#2e6b3c"))
-		g.disc(x-r*0.45, y-r*0.45, r*0.35, hexRGB("#4f8f4b"))
-		for i := range int(r * r) {
-			ax, ay := x+(hash(i, 1, int(x))-0.5)*r*1.6, y+(hash(i, 2, int(y))-0.5)*r*1.6
-			if math.Hypot(ax-x, ay-y) < r-0.5 {
-				g.set(int(ax), int(ay), hexRGB("#3a7d43"))
+}
+
+// Garden City: white towers at dusk, green spiraling up them, gardens on
+// their tops and wind sails turning over those, water falling from them,
+// bridges arching between them with planters glowing, a maglev streaking
+// by, and a canal mirroring it all, lanterns drifting on it.
+var gardenCityAnim = &animation{id: "garden-city", name: "Garden City", fps: 15, tile: ui.Hex("#2e9b57"), draw: drawGardenCity}
+
+// gardenTower is a tower of the garden city: its middle, width and top,
+// and a seed of its own.
+type gardenTower struct {
+	cx, w, top float64
+	s          int
+}
+
+// halfWidth is how far the tower goes either side of its middle at y,
+// down to the canal: a little wider at its foot.
+func (tw gardenTower) halfWidth(y, canal float64) float64 {
+	return tw.w / 2 * (0.82 + 0.18*(y-tw.top)/(canal-tw.top))
+}
+
+func drawGardenCity(g *grid, t float64, _ animPalette) {
+	const canal, sx, sy = 52.0, 86.0, 42.0
+	var (
+		gold, teal         = hexRGB("#ffcc66"), hexRGB("#5ff0e0")
+		haze, green        = hexRGB("#e3a258"), hexRGB("#6cc46f")
+		ivy, white         = hexRGB("#2e8b57"), rgb{255, 255, 255}
+		stone, stoneShadow = hexRGB("#f4ecd8"), hexRGB("#5f7f88")
+		leafDark, leafLit  = hexRGB("#1f6a45"), hexRGB("#7fd47a")
+		sunlit             = hexRGB("#ffe08a")
+	)
+	g.sky(canal, hexRGB("#0a2231"), hexRGB("#103d4a"), hexRGB("#1d6668"), hexRGB("#5b9c86"), haze, hexRGB("#ffd58a"))
+	g.stars(t, 0.06, 131, func(float64) float64 { return 14 }, hexRGB("#1a4a58"), hexRGB("#d8fff6"))
+
+	// The sun, low behind the towers, its rays through the haze.
+	g.glow(sx, sy, 46, hexRGB("#ffbf6a"), 0.5)
+	ray := hexRGB("#ffe2a0")
+	for y := g.y0; y < sy; y++ {
+		for x := g.x0; x < g.x1; x++ {
+			d := math.Hypot(x-sx, y-sy)
+			if d >= 95 {
+				continue
+			}
+			an := math.Atan2(y-sy, x-sx)
+			if r := noise(an*7+t*0.04, 0.5, 132)*0.7 + noise(an*19-t*0.03, 1.5, 133)*0.3; r > 0.55 {
+				g.mix(x, y, ray, (r-0.55)*0.55*(1-d/95))
 			}
 		}
 	}
-	// The second tree, at the right, with its platform.
-	rx := cx + 17
-	g.rect(rx-1, gy-12, rx+1, gy, hexRGB("#5b3b28"))
-	canopy(float64(rx), float64(gy-17), 6)
-	g.rect(rx-4, gy-12, rx+5, gy-11, hexRGB("#7a4f30"))
-	// The great tree: roots, trunk, branches and canopy.
-	for y := gy - 24; y < gy; y++ {
-		w := 3 + (y-(gy-24))/8
-		for x := tx - w; x <= tx+w; x++ {
-			c := hexRGB("#5b3b28")
-			switch {
-			case x == tx-w:
-				c = hexRGB("#7a5236")
-			case x == tx+w:
-				c = hexRGB("#3e281c")
-			case hash(x, y, 424) < 0.15:
-				c = hexRGB("#4a3020")
+	g.disc(sx, sy, 6.5, hexRGB("#fff3cc"), 1)
+
+	// The far city, hazy, green on its roofs.
+	far, farLit := hexRGB("#2a6466"), hexRGB("#5b9c86")
+	g.spans(-2, func(i int) (float64, float64) {
+		return 3 + math.Floor(4*hash(i, 1, 134)), 1 + math.Floor(3*hash(i, 4, 134))
+	}, func(i int, x, w float64) {
+		top := 26 + math.Floor(12*hash(i, 2, 134))
+		c := mixRGB(far, farLit, 0.35+0.25*hash(i, 3, 134))
+		for y := top; y < canal; y++ {
+			cy := mixRGB(c, haze, clamp((y-30)/30, 0, 0.35))
+			for xx := x; xx < x+w; xx++ {
+				g.set(xx, y, cy)
+			}
+		}
+		for xx := x; xx < x+w; xx++ {
+			g.set(xx, top, mixRGB(c, green, 0.5))
+		}
+		for y := top + 2; y < canal; y += 3 {
+			for xx := x + 1; xx < x+w-1; xx += 2 {
+				if hash(int(xx), int(y), 135) < 0.25 {
+					g.mix(xx, y, gold, 0.55)
+				}
+			}
+		}
+	})
+
+	// The maglev's track, on pillars, between the towers' feet.
+	track := func(x float64) float64 { return 45 + 2.2*math.Sin(x*0.045+0.6) }
+	rail, pillar := hexRGB("#cfe6e0"), hexRGB("#9fbcb6")
+	for x := g.x0; x < g.x1; x++ {
+		g.set(x, track(x)+1, rail)
+		if wrap(x, 13) == 6 {
+			for y := math.Floor(track(x)) + 2; y < canal; y++ {
+				g.set(x, y, pillar)
+			}
+		}
+	}
+
+	// The towers, and more past the design's edges for a wider pane.
+	towers := []gardenTower{{18, 10, 12, 1}, {43, 7, 19, 2}, {66, 12, 11, 3}, {104, 9, 14, 4}}
+	first := 0
+	for k := 1; ; k++ {
+		cx := math.Floor(18 - 30*float64(k) + 6*(hash(k, 1, 149)-0.5))
+		if cx < g.x0-12 {
+			break
+		}
+		tw := gardenTower{cx, 7 + math.Floor(5*hash(k, 2, 149)), 9 + math.Floor(11*hash(k, 3, 149)), 4 + 2*k}
+		towers = append([]gardenTower{tw}, towers...)
+		first++
+	}
+	for k := 1; ; k++ {
+		cx := math.Floor(104 + 30*float64(k) + 6*(hash(-k, 1, 149)-0.5))
+		if cx > g.x1+12 {
+			break
+		}
+		towers = append(towers, gardenTower{cx, 7 + math.Floor(5*hash(-k, 2, 149)), 9 + math.Floor(11*hash(-k, 3, 149)), 5 + 2*k})
+	}
+	crownDark, crownLit, sail, beacon := hexRGB("#174d34"), hexRGB("#ffd98a"), hexRGB("#d8e6e2"), hexRGB("#ff5a5a")
+	fallFoam, fall, spray := hexRGB("#e6fbff"), hexRGB("#7fd6e6"), hexRGB("#c8f6ff")
+	for _, tw := range towers {
+		s := float64(tw.s)
+		lit := 1.0 // the side the sun lights
+		if tw.cx > sx {
+			lit = -1
+		}
+		var falls [][2]float64
+		for y := tw.top; y < canal; y++ {
+			h := tw.halfWidth(y, canal)
+			for x := math.Floor(tw.cx - h); x <= tw.cx+h; x++ {
+				u := clamp((x+0.5-tw.cx)/h, -1, 1)
+				v := u * lit
+				c := mixRGB(stoneShadow, stone, (v+1)/2)
+				if v > 0.75 {
+					c = mixRGB(c, gold, 0.5)
+				}
+				ix, iy := int(x), int(y)
+				if band := math.Sin(y*0.42 - math.Asin(u)*1.8 + s*2 + t*0.05); band > 0.45 {
+					leaf := noise(x*0.9, y*0.7, 136+tw.s)
+					c = mixRGB(leafDark, leafLit, clamp(leaf*0.7+(v+1)*0.25, 0, 1))
+					if v > 0.6 {
+						c = mixRGB(c, sunlit, 0.35)
+					}
+				} else if int(y-tw.top)%3 == 1 && int(math.Floor(x-tw.cx+20))%2 == 0 && hash(ix, iy, 137+tw.s) < 0.42 {
+					w := gold
+					if hash(ix, iy, 138) >= 0.75 {
+						w = teal
+					}
+					c = mixRGB(c, w, 0.85-0.3*hash(ix, iy+int(math.Floor(t/6)), 139))
+				}
+				g.set(x, y, c)
+			}
+			iy := int(y)
+			if math.Sin(y*0.42+math.Pi/2*1.8+s*2+t*0.05) > 0.45 && hash(iy, 1, 140+tw.s) < 0.5 {
+				g.set(tw.cx-h-1, y+1, ivy)
+			}
+			if math.Sin(y*0.42-math.Pi/2*1.8+s*2+t*0.05) > 0.45 && hash(iy, 2, 140+tw.s) < 0.5 {
+				g.set(tw.cx+h+1, y+1, green)
+				if hash(iy, 3, 140+tw.s) < 0.18 {
+					falls = append(falls, [2]float64{tw.cx + h + 1, y + 2})
+				}
+			}
+		}
+		for _, f := range falls[:min(len(falls), 2)] {
+			for y := f[1]; y < canal; y++ {
+				c := fall
+				if wrap(y-t*14+f[0], 4) < 1.2 {
+					c = fallFoam
+				}
+				g.set(f[0], y, c)
+			}
+			ch := '·'
+			if int(math.Floor(t*5+f[0]))&1 == 1 {
+				ch = '°'
+			}
+			g.char(f[0]/2, (canal-1)/4, ch, spray)
+		}
+		// A garden crowning it, rim-lit on the sun's side.
+		rx := tw.w/2 + 2.4
+		for y := tw.top - 4; y <= tw.top+2; y++ {
+			for x := math.Floor(tw.cx - rx - 1); x <= tw.cx+rx+1; x++ {
+				v := (x + 0.5 - tw.cx) / rx * lit
+				e := math.Hypot((x+0.5-tw.cx)/rx, (y+0.5-tw.top+0.5)/3.2) - 0.4*noise(x*0.9, y*0.9+t*0.1, 146+tw.s)
+				if e >= 0.8 {
+					continue
+				}
+				c := mixRGB(crownDark, green, clamp(noise(x*1.3, y*1.3, 147)*0.6+(v+1)*0.25, 0, 1))
+				if e > 0.58 && v > -0.3 && y < tw.top+1 {
+					c = mixRGB(c, crownLit, 0.55)
+				}
+				g.set(x, y, c)
+			}
+		}
+		for k := range 3 {
+			fk := float64(k)
+			x := tw.cx + (hash(k, 1, 148+tw.s)-0.5)*tw.w
+			g.set(x, tw.top-1, mixRGB(ivy, gold, 0.5+0.5*math.Sin(t*1.5+fk*2+s)))
+		}
+		// The wind sail: two helical blades turning on a mast.
+		for k := range 7 {
+			fk := float64(k)
+			y, ph := tw.top-4-fk, t*3+fk*0.55+s
+			g.set(tw.cx, y, sail)
+			near, far := 0.95, 0.4
+			if math.Cos(ph) <= 0 {
+				near, far = far, near
+			}
+			g.splat(tw.cx+0.5+2.6*math.Sin(ph), y+0.5, white, near)
+			g.splat(tw.cx+0.5-2.6*math.Sin(ph), y+0.5, white, far)
+		}
+		if wrap(t+s, 2) < 0.5 {
+			g.set(tw.cx, tw.top-11, beacon)
+		}
+	}
+
+	// Bridges, arching from tower to tower, planters glowing along them:
+	// those of the design, and one to each tower past it.
+	type bridge struct {
+		i, j   int
+		ya, yb float64
+	}
+	bridges := []bridge{{0, 1, 24, 26}, {1, 2, 30, 29}, {2, 3, 20, 24}, {0, 2, 40, 40}}
+	for i := range bridges {
+		bridges[i].i += first
+		bridges[i].j += first
+	}
+	for i := range towers {
+		if i < first || i > first+3 {
+			j := i + 1
+			if i > first+3 {
+				j = i - 1
+			}
+			ya := 21 + 18*hash(towers[i].s, 5, 150)
+			bridges = append(bridges, bridge{min(i, j), max(i, j), ya, ya + 6*(hash(towers[i].s, 6, 150)-0.5)})
+		}
+	}
+	deck, deckShadow := hexRGB("#efe6d2"), hexRGB("#9fb5b0")
+	for k, b := range bridges {
+		A, B := towers[b.i], towers[b.j]
+		x0, x1 := A.cx+A.halfWidth(b.ya, canal)+1, B.cx-B.halfWidth(b.yb, canal)-1
+		for x := math.Floor(x0); x <= x1; x++ {
+			u := (x - x0) / max(x1-x0, 1)
+			y := b.ya + (b.yb-b.ya)*u - 2.2*math.Sin(math.Pi*u)
+			g.set(x, y, deck)
+			g.set(x, y+1, deckShadow)
+			if ix := int(x); ix%3 == 0 {
+				p := 0.6 + 0.4*math.Sin(t*2+x*0.7+float64(k))
+				c := teal
+				if ix%6 != 0 {
+					c = gold
+				}
+				g.set(x, y-1, mixRGB(ivy, c, p))
+				g.glow(x+0.5, y-0.5, 2.2, c, 0.25*p)
+			}
+			if hash(int(x), k, 141) < 0.3 {
+				g.set(x, y+2, ivy)
+			}
+		}
+	}
+
+	// The maglev, streaking through with its trail of light.
+	head := g.x0 + wrap(t*26, g.wd()+90) - 30
+	nose, cabin, trailEnd := hexRGB("#f2fffd"), hexRGB("#bfeee6"), hexRGB("#1d6668")
+	for j := range 34 {
+		fj := float64(j)
+		x := head - fj
+		if x < g.x0 || x >= g.x1 {
+			continue
+		}
+		y := track(x)
+		if j < 12 {
+			g.splat(x, y-0.4, nose, 0.95)
+			g.set(x, y-1.2, cabin)
+		} else {
+			g.splat(x, y-0.4, mixRGB(teal, trailEnd, (fj-12)/22), 0.7*(1-(fj-12)/22))
+		}
+	}
+	g.glow(head+1, track(head)-0.5, 4, hexRGB("#e8fffb"), 0.4)
+
+	// The canal: everything mirrored, rippling, the sun glittering on it.
+	water, glint, ripple := hexRGB("#0c3440"), hexRGB("#fff0c0"), hexRGB("#9fe8e0")
+	for y := max(canal, g.y0); y < g.y1; y++ {
+		d := y - canal
+		f, sy2 := min(d/12, 1), canal-1-d*1.6
+		rip := math.Sin(y*0.9+t*1.8)*(0.4+d*0.08) + math.Sin(y*2.3-t*2.6)*0.3
+		hw := 2.5 + min(d, 16)*0.9
+		for x := g.x0; x < g.x1; x++ {
+			xr := x + rip + 0.5*math.Sin(x*0.15+y*0.5+t)
+			x0 := math.Floor(xr)
+			c := mixRGB(mixRGB(g.get(x0, sy2), g.get(x0+1, sy2), xr-x0), water, 0.32+f*0.4)
+			if dx := math.Abs(x - sx); dx < hw && math.Sin(x*1.3+y*2.7+t*4)*math.Sin(x*0.5-t*1.7+y*1.1) > 0.3 {
+				c = mixRGB(c, glint, 0.8*(1-dx/hw))
+			}
+			if math.Sin(x*0.21+y*3.1-t*1.2+2*math.Sin(x*0.05)) > 0.92 {
+				c = mixRGB(c, ripple, 0.2)
 			}
 			g.set(x, y, c)
 		}
 	}
-	for _, r := range [][2]int{{-6, 0}, {-5, -1}, {6, 0}, {5, -1}, {-7, 0}} {
-		g.set(tx+r[0], gy+r[1], hexRGB("#4a3020"))
+	quay := hexRGB("#efe2c4")
+	for x := g.x0; x < g.x1; x++ {
+		g.mix(x, canal, quay, 0.45)
 	}
-	g.line(float64(tx-2), float64(gy-14), float64(tx-13), float64(gy-21), hexRGB("#5b3b28"))
-	g.line(float64(tx-2), float64(gy-13), float64(tx-13), float64(gy-20), hexRGB("#5b3b28"))
-	g.line(float64(tx+2), float64(gy-17), float64(tx+12), float64(gy-24), hexRGB("#5b3b28"))
-	g.line(float64(tx+2), float64(gy-16), float64(tx+12), float64(gy-23), hexRGB("#5b3b28"))
-	for _, c := range [][3]float64{{0, -31, 11}, {-12, -26, 8}, {11, -28, 9}, {-5, -38, 8}, {6, -37, 7}} {
-		canopy(float64(tx)+c[0], float64(gy)+c[1], c[2])
+	for k := range max(1, int(math.Round(5*g.wd()/128))) {
+		x := g.x0 + wrap(g.wd()*hash(k, 1, 142)+t*(0.8+hash(k, 2, 142)), g.wd())
+		y := canal + 3 + (g.y1-canal-4)*hash(k, 3, 142)
+		g.splat(x, y, gold, 1)
+		g.glow(x, y, 3, gold, 0.3)
+		g.mix(x, y+2, gold, 0.25)
 	}
-	lamp := func(x, y int, k float64) {
-		f := 0.75 + 0.25*noise(t*3+k, 0.5, 425)
-		g.glow(float64(x)+0.5, float64(y)+0.5, 4, hexRGB("#ffcf7a"), 0.35*f)
-		g.set(x, y, mixRGB(hexRGB("#ff9a4a"), hexRGB("#ffd27a"), f))
-	}
-	// The left home, on its branch: plank walls, a mossy roof, a lit
-	// round window and a door.
-	hx, hy := tx-15, gy-20
-	g.rect(hx-1, hy+5, hx+11, hy+6, hexRGB("#7a4f30"))
-	g.rect(hx, hy, hx+9, hy+5, hexRGB("#b07a4e"))
-	for y := hy + 1; y < hy+5; y += 2 {
-		g.rect(hx, y, hx+9, y+1, hexRGB("#9a6842"))
-	}
-	for r := range 4 {
-		g.rect(hx-1+r, hy-1-r, hx+10-r, hy-r, hexRGB("#8a3b2e"))
-		g.set(hx+2+r*2, hy-1-r, hexRGB("#4b7d3e"))
-	}
-	lamp(hx+2, hy+2, 0)
-	lamp(hx+3, hy+2, 0.3)
-	g.rect(hx+6, hy+2, hx+8, hy+5, hexRGB("#5a3a26"))
-	// The right home, higher: a solar roof, glinting, and a spinner.
-	h2x, h2y := tx+6, gy-30
-	g.rect(h2x-1, h2y+4, h2x+8, h2y+5, hexRGB("#7a4f30"))
-	g.rect(h2x, h2y, h2x+7, h2y+4, hexRGB("#c08a5a"))
-	g.rect(h2x-1, h2y-1, h2x+8, h2y, hexRGB("#2a4a78"))
-	g.set(h2x+int(wrap(t*2, 9))-1, h2y-1, hexRGB("#cfe6ff"))
-	lamp(h2x+2, h2y+2, 1)
-	sp := int(t*6) % 4
-	dxs, dys := []int{0, 1, 0, -1}[sp], []int{-1, 0, 1, 0}[sp]
-	g.set(h2x+6, h2y-3, hexRGB("#e8e8e8"))
-	g.set(h2x+6+dxs, h2y-3+dys, hexRGB("#e8e8e8"))
-	g.set(h2x+6-dxs, h2y-3-dys, hexRGB("#e8e8e8"))
-	g.set(h2x+6, h2y-2, hexRGB("#8a8a8a"))
-	// The rope bridge to the second tree, sagging, lanterns along it.
-	bx0, by0, bx1, by1 := tx+5, gy-14, rx-4, gy-12
-	for x := bx0; x <= bx1; x++ {
-		u := float64(x-bx0) / float64(max(bx1-bx0, 1))
-		y := int(float64(by0) + float64(by1-by0)*u + 3*math.Sin(math.Pi*u))
-		if x%2 == 0 {
-			g.set(x, y, hexRGB("#8a5a3a"))
-		}
-		g.set(x, y-3, hexRGB("#d6be8e"))
-	}
-	for k, u := range []float64{0.25, 0.55, 0.85} {
-		x := bx0 + int(float64(bx1-bx0)*u)
-		y := int(float64(by0)+float64(by1-by0)*u+3*math.Sin(math.Pi*u)) - 2
-		g.set(x, y, hexRGB("#d6be8e"))
-		lamp(x, y+1, float64(k)+2)
-	}
-	lamp(tx-12, gy-19, 5)
-	// The gondola, gliding along its cable from the left home to the
-	// ground and back.
-	cx0, cy0, cx1, cy1 := float64(hx-1), float64(hy+3), float64(cx-36), float64(gy-3)
-	for k := 0; k <= 200; k++ {
-		u := float64(k) / 200
-		g.set(int(cx0+(cx1-cx0)*u), int(cy0+(cy1-cy0)*u+2*math.Sin(math.Pi*u)), hexRGB("#3a3a4a"))
-	}
-	g.rect(int(cx1)-3, gy-3, int(cx1)+3, gy, hexRGB("#8a5a3a"))
-	g.rect(int(cx1)-4, gy-4, int(cx1)+4, gy-3, hexRGB("#6b3a2a"))
-	s := wrap(t, 20)
-	u := 0.0
-	switch {
-	case s < 8:
-		u = smooth(s / 8)
-	case s < 10:
-		u = 1
-	case s < 18:
-		u = 1 - smooth((s-10)/8)
-	}
-	gxp := cx0 + (cx1-cx0)*u
-	gyp := cy0 + (cy1-cy0)*u + 2*math.Sin(math.Pi*u)
-	g.set(int(gxp), int(gyp)+1, hexRGB("#3a3a4a"))
-	g.rect(int(gxp)-2, int(gyp)+2, int(gxp)+2, int(gyp)+3, hexRGB("#3a3a4a"))
-	g.rect(int(gxp)-2, int(gyp)+3, int(gxp)+2, int(gyp)+6, hexRGB("#c4503f"))
-	g.rect(int(gxp)-1, int(gyp)+4, int(gxp)+1, int(gyp)+5, hexRGB("#ffe6a8"))
-	// A bird flies in, lands on the right branch, hops, and flies off.
-	lx, ly := float64(tx+11), float64(gy-25)
-	bs := wrap(t, 16)
-	var bxp, byp float64
-	flying := true
-	switch {
-	case bs < 4:
-		k := bs / 4
-		bxp, byp = float64(W)+4+(lx-float64(W)-4)*k, ly-10+10*smooth(k)
-	case bs < 10:
-		flying = false
-		hop := math.Max(0, math.Sin((bs-4)*math.Pi))
-		bxp, byp = lx-math.Floor((bs-4)/2), ly-math.Round(hop)
-	case bs < 14:
-		k := (bs - 10) / 4
-		bxp, byp = lx-3-k*(lx+10), ly-k*k*14
-	default:
-		bxp = -20
-	}
-	bird := hexRGB("#2a2a3a")
-	if flying {
-		g.set(int(bxp), int(byp), bird)
-		if int(t*8)%2 == 0 {
-			g.set(int(bxp)-1, int(byp)-1, bird)
-			g.set(int(bxp)+1, int(byp)-1, bird)
-		} else {
-			g.set(int(bxp)-1, int(byp), bird)
-			g.set(int(bxp)+1, int(byp), bird)
-		}
-	} else {
-		g.rect(int(bxp), int(byp)-1, int(bxp)+2, int(byp)+1, bird)
-		g.set(int(bxp)-1, int(byp)-1, hexRGB("#e0a040"))
-	}
-	// Fireflies.
-	for i := range 7 {
-		x := float64(tx) + 30*(hash(i, 1, 426)-0.5) + 3*math.Sin(t*0.7+float64(i))
-		y := float64(gy) - 2 - 20*hash(i, 2, 426) + 2*math.Sin(t*0.5+float64(i)*2)
-		if math.Sin(t*2+float64(i)*1.7) > 0.2 {
-			g.char(int(x), int(y)/2, '·', hexRGB("#ffe680"))
-		}
-	}
-}
 
-// Helix: a double helix, small and fine, turning slowly in the dark, its
-// strands in the theme's accent and second color, the nearer brighter, a
-// pulse running down them, the rungs between them characters lettered at
-// their ends, motes drifting round it.
-var helixAnim = &animation{id: "helix", name: "Helix", fps: 20, tile: ui.Hex("#6a4cc2"), draw: drawHelix}
-
-func drawHelix(g *grid, t float64, pal animPalette) {
-	W, H := g.w, g.h
-	cx := float64(W) / 2
-	g.rect(0, 0, W, H, pal.bg)
-	glowC := mixRGB(pal.bg, pal.second, 0.5)
-	// The helix, as tall as the pane allows, within reason.
-	hh := min(max(float64(H)-8, 16), 56)
-	top := (float64(H) - hh) / 2
-	r := min(max(hh*0.17, 4), 9)
-	period := hh / 2.1
-	for y := int(top) - 6; y < int(top+hh)+6; y++ {
-		v := 1.0
-		if d := math.Max(top-float64(y), float64(y)-top-hh); d > 0 {
-			v = math.Max(0, 1-d/6)
-		}
-		for x := int(cx - r*2.4); x <= int(cx+r*2.4); x++ {
-			d := math.Abs(float64(x)-cx) / (r * 2.4)
-			g.mix(x, y, glowC, 0.14*(1-d)*(1-d)*v*v)
-		}
-	}
-	faint := mixRGB(pal.bg, pal.text, 0.25)
-	for i := range 18 {
-		a := t*(0.15+0.2*hash(i, 1, 430)) + 6.3*hash(i, 2, 430)
-		x := cx + (r*2.5+10*hash(i, 3, 430))*math.Cos(a)
-		y := wrap(float64(H)*hash(i, 4, 430)-t*(0.6+hash(i, 5, 430)), float64(H))
-		c := faint
-		if math.Sin(a) < 0 {
-			c = mixRGB(pal.bg, faint, 0.5)
-		}
-		g.char(int(x), int(y)/2, []rune("·∙˙")[i%3], c)
-	}
-	angle := func(y float64) float64 { return (y-top)/period*2*math.Pi + t*0.9 }
-	shade := func(c rgb, z float64) rgb { return mixRGB(pal.bg, c, 0.25+0.75*(z+1)/2) }
-	// A strand's pixel, antialiased across: the pixel it falls in and its
-	// neighbor, by how far it is between them.
-	plot := func(x, y float64, c rgb, a float64) {
-		x0 := math.Floor(x)
-		g.mix(int(x0), int(y), c, a*(1-(x-x0)))
-		g.mix(int(x0)+1, int(y), c, a*(x-x0))
-	}
-	pulse := wrap(t*10, hh+20) - 10
-	for pass := range 2 {
-		for y := top; y < top+hh; y++ {
-			th := angle(y)
-			off, z := r*math.Sin(th), math.Cos(th)
-			for _, s := range []struct {
-				sign float64
-				c    rgb
-			}{{1, pal.accent}, {-1, pal.second}} {
-				zz := z * s.sign
-				if (zz < 0) != (pass == 0) {
+	// Leaves framing the bottom corners, rim-lit by the sun.
+	shadeDark, shadeLit, rim := hexRGB("#0b211a"), hexRGB("#163b2a"), mixRGB(hexRGB("#1f4a33"), hexRGB("#ffcf7a"), 0.5)
+	leaves := func(cx, cy, r, sway float64) {
+		for y := math.Floor(cy - r); y < min(g.y1, cy+r+1); y++ {
+			for x := math.Floor(cx - r*1.4); x <= cx+r*1.4; x++ {
+				e := math.Hypot((x-cx-sway)/(r*1.4), (y-cy)/r) - 0.25*noise(x/2, y/2, 143)
+				if e >= 1 {
 					continue
 				}
-				c := shade(s.c, zz)
-				if zz > 0 && math.Abs(y-top-pulse) < 1.5 {
-					c = mixRGB(c, rgb{255, 255, 255}, 0.6)
-				}
-				plot(cx+off*s.sign, y, c, 1)
-				if zz > 0.3 {
-					plot(cx+off*s.sign+0.8, y, c, 0.5)
+				if e > 0.82 && y < cy {
+					g.set(x, y, rim)
+				} else {
+					g.set(x, y, mixRGB(shadeDark, shadeLit, noise(x/1.5, y/1.5, 144)))
 				}
 			}
 		}
 	}
-	// The rungs, a row of cells apart, lettered at their ends where they
-	// face the viewer.
-	pairs := [4][2]rune{{'A', 'T'}, {'T', 'A'}, {'C', 'G'}, {'G', 'C'}}
-	colors := [4]rgb{pal.ansi[2], pal.ansi[3], pal.ansi[5], pal.ansi[6]}
-	for row := int(top)/2 + 1; row < int(top+hh)/2; row++ {
-		y := float64(row*2) + 0.5
-		th := angle(y)
-		off, z := r*math.Sin(th), math.Cos(th)
-		if math.Abs(off) < 2 {
+	leaves(g.x0+4, g.y1-3, 9, math.Sin(t*0.9)*0.6)
+	leaves(g.x0-2, g.y1-12, 6, math.Sin(t*0.9+1)*0.6)
+	leaves(g.x1-4, g.y1-4, 10, math.Sin(t*0.8+2)*0.6)
+
+	// Spores of light drifting up, and birds now and then.
+	sporeGold, sporeTeal := hexRGB("#ffe08a"), hexRGB("#9ff8ea")
+	for k := range int(16 * g.area()) {
+		fk := float64(k)
+		if math.Sin(t*2+fk) <= -0.3 {
 			continue
 		}
-		kind := int(hash(row-int(top)/2, 3, 431) * 4)
-		c := mixRGB(pal.bg, colors[kind], 0.35+0.4*(1-math.Abs(z)))
-		lo, hi := cx-math.Abs(off), cx+math.Abs(off)
-		for col := int(lo) + 2; col < int(hi); col++ {
-			g.char(col, row, '─', c)
+		x := g.x0 + wrap(g.wd()*hash(k, 1, 145)+math.Sin(t*0.6+fk)*4, g.wd())
+		y := g.y0 + wrap(g.hd()*hash(k, 2, 145)-t*(1+1.5*hash(k, 3, 145)), g.hd())
+		c := sporeGold
+		if k%3 == 0 {
+			c = sporeTeal
 		}
-		if math.Abs(math.Sin(th)) > 0.6 {
-			a, b := pairs[kind][0], pairs[kind][1]
-			if off < 0 {
-				a, b = b, a
+		col, row := cellOf(x, y)
+		g.char(col, row, '·', c)
+	}
+	g.flock(t, 19, 8, 4, 6, 1.4, hexRGB("#0f3340"))
+}
+
+// Helix: a double helix turning, its base pairs lettered as they face
+// out, sparks running up its strands, a ring circling it, in the colors
+// of the window's theme.
+var helixAnim = &animation{id: "helix", name: "Helix", fps: 24, tile: ui.Hex("#6a4cc2"), draw: drawHelix}
+
+func drawHelix(g *grid, t float64, pal animPalette) {
+	bg, acc, sec, txt := pal.bg, pal.accent, pal.second, pal.text
+	bases := [4]rgb{pal.ansi[2], pal.ansi[3], pal.ansi[5], pal.ansi[6]}
+	partner := [4]int{1, 0, 3, 2}
+	spark := rgb{255, 255, 255}
+	if !pal.dark {
+		spark = txt
+	}
+	const r, period = 11.0, 26.0
+	cx, cy := math.Floor((g.x0+g.x1)/2), (g.y0+g.y1)/2
+	top, hh := g.y0+6, g.hd()-12
+	g.fill(bg)
+	// A lattice of dots, fading to the sides, and a glow behind the helix.
+	for y := g.y0 + wrap(2-g.y0, 6); y < g.y1; y += 6 {
+		for x := g.x0 + wrap(3-g.x0, 6); x < g.x1; x += 6 {
+			g.mix(x, y, txt, 0.07*(1-math.Abs(x-cx)/70))
+		}
+	}
+	for y := g.y0; y < g.y1; y++ {
+		v := 1.0
+		if y < top {
+			v = max(0, 1-(top-y)/6)
+		} else if y > top+hh {
+			v = max(0, 1-(y-top-hh)/6)
+		}
+		for x := math.Floor(cx - 26); x <= cx+26; x++ {
+			d := math.Abs(x-cx) / 26
+			g.mix(x, y, sec, 0.12*(1-d)*(1-d)*v*v)
+		}
+	}
+	orbit := func(front bool) {
+		for k := range 44 {
+			an := float64(k)/44*6.283 + t*0.45
+			if (math.Sin(an) > 0) != front {
+				continue
 			}
-			g.char(int(lo), row, a, shade(colors[kind], 0.4))
-			g.char(int(hi)+1, row, b, shade(colors[kind], 0.4))
+			c, a := mixRGB(bg, acc, 0.35), 0.5
+			if front {
+				c, a = mixRGB(bg, acc, 0.9), 0.9
+			}
+			g.splat(cx+30*math.Cos(an), cy+2+7*math.Sin(an)-6*math.Cos(an)*0.3, c, a)
+		}
+	}
+	orbit(false)
+	motes := []rune("·∙˙")
+	for i := range int(math.Round(14 * g.hd() / 64)) {
+		a := t*(0.15+0.2*hash(i, 1, 71)) + 6.3*hash(i, 2, 71)
+		x := cx + (28+26*hash(i, 3, 71))*math.Cos(a)
+		y := g.y0 + wrap(g.hd()*hash(i, 4, 71)-t*(1+hash(i, 5, 71)*2), g.hd())
+		k := 0.32
+		if math.Sin(a) < 0 {
+			k = 0.18
+		}
+		col, row := cellOf(x, y)
+		g.char(col, row, motes[i%3], mixRGB(bg, txt, k))
+	}
+
+	angle := func(y float64) float64 { return (y-top)/period*2*math.Pi + t*0.9 }
+	shade := func(c rgb, z float64) rgb { return mixRGB(bg, c, 0.2+0.8*(z+1)/2) }
+	strand := func(sg float64, c rgb, back bool) {
+		for y := top; y < top+hh; y += 0.5 {
+			th := angle(y)
+			off, z := r*math.Sin(th)*sg, math.Cos(th)*sg
+			if (z < 0) != back {
+				continue
+			}
+			col, w := shade(c, z), 1+(z+1)*0.6
+			for d := -w / 2; d <= w/2; d += 0.5 {
+				g.splat(cx+off+d, y, col, 0.5)
+			}
+			if z > 0.6 {
+				g.splat(cx+off-0.6, y, mixRGB(col, rgb{255, 255, 255}, 0.5), 0.25)
+			}
+		}
+	}
+	strand(1, acc, true)
+	strand(-1, sec, true)
+	pairs := [4][2]rune{{'A', 'T'}, {'T', 'A'}, {'C', 'G'}, {'G', 'C'}}
+	for y, k := top+2, 0; y < top+hh; y, k = y+4, k+1 {
+		th := angle(y)
+		off, z := r*math.Sin(th), math.Cos(th)
+		ao := math.Abs(off)
+		if ao < 2 {
+			continue
+		}
+		kind := pick(hash(k, 3, 72), 4)
+		ca, cb := bases[kind], bases[partner[kind]]
+		left, right := ca, cb
+		if off > 0 {
+			left, right = cb, ca
+		}
+		a := 0.35 + 0.45*(1-math.Abs(z))
+		for x := -ao + 1; x < ao-1; x += 0.5 {
+			g.splat(cx+x, y, mixRGB(left, right, (x+ao)/(2*ao)), a*0.5)
+		}
+		if math.Abs(math.Sin(th)) > 0.75 && k%2 == 0 {
+			p, q := pairs[kind][0], pairs[kind][1]
+			if off < 0 {
+				p, q = q, p
+			}
+			c1, r1 := cellOf(cx-ao-3, y)
+			c2, _ := cellOf(cx+ao+3, y)
+			g.char(c1, r1, p, shade(ca, 0.6))
+			g.char(c2, r1, q, shade(cb, 0.6))
+		}
+	}
+	strand(1, acc, false)
+	strand(-1, sec, false)
+	n := max(1, int(math.Round(6*hh/52)))
+	for k := range n {
+		y := top + wrap(t*9+float64(k)*hh/float64(n), hh)
+		sg := -1.0
+		if k%2 == 1 {
+			sg = 1
+		}
+		a := 0.25
+		if math.Cos(angle(y))*sg > 0 {
+			a = 0.7
+		}
+		for j := range 5 {
+			fj := float64(j)
+			yy := y - fj*0.8
+			if yy < top {
+				break
+			}
+			g.splat(cx+r*math.Sin(angle(yy))*sg, yy, spark, a*(1-fj/5))
+		}
+	}
+	orbit(true)
+}
+
+// Aurora: northern lights in three curtains, rippling, over snowy ranges
+// and a still lake that mirrors them, and a shooting star now and then.
+var auroraAnim = &animation{id: "aurora", name: "Aurora", fps: 15, tile: ui.Hex("#1f8f6a"), draw: drawAurora}
+
+func drawAurora(g *grid, t float64, _ animPalette) {
+	const lake = 50.0
+	g.sky(lake, hexRGB("#02040c"), hexRGB("#061028"), hexRGB("#0b1a3a"), hexRGB("#12284c"))
+	g.stars(t, 0.08, 91, func(float64) float64 { return 40 }, hexRGB("#24345e"), hexRGB("#e8f0ff"))
+	if ms := wrap(t, 12); ms < 0.7 {
+		n := int(math.Floor(t / 12))
+		x0, y0 := g.x0+20+(g.wd()-48)*hash(n, 1, 92), 3+6*hash(n, 2, 92)
+		for j := range 10 {
+			fj := float64(j)
+			g.splat(x0-ms*40+fj*2.2, y0+ms*14-fj*0.8, rgb{255, 255, 255}, 1-fj/10)
+		}
+	}
+	violet, green, mint := hexRGB("#8a5cff"), hexRGB("#3cff9d"), hexRGB("#b8ffe0")
+	for c := range 3 {
+		fc := float64(c)
+		strength := 0.75
+		if c == 1 {
+			strength = 1
+		}
+		for x := g.x0; x < g.x1; x++ {
+			base := 8 + fc*6 + 5*math.Sin(x*0.035+t*0.12+fc*1.3) + 3*(noise(x/18+t*0.08, fc, 93)-0.5)*2
+			in := clamp((0.5+0.5*math.Sin(x*0.22+t*1.1+fc*2+noise(x*0.08, t*0.25, 94+c)*5))*(0.55+0.45*noise(x/40, t*0.1, 95)), 0, 1)
+			n := 12 + 8*noise(x/10, t*0.2, 96+c)
+			for j := 0.0; j < n; j++ {
+				k := j / n
+				col, fade := mixRGB(green, mint, (k-0.25)/0.75), 1.0
+				if k < 0.25 {
+					col = mixRGB(violet, green, k/0.25)
+				}
+				if k < 0.2 {
+					fade = k / 0.2
+				}
+				g.mix(x, base+j, col, in*fade*(1-k*0.55)*0.42*strength)
+			}
+		}
+	}
+	peaks := func(x float64, s int, l float64) float64 {
+		return math.Pow(1-math.Abs(2*fbm(x/l, float64(s), 97+s)-1), 1.6)
+	}
+	ranges := []struct {
+		off          float64
+		s            int
+		base, amp, l float64
+		body, snow   rgb
+	}{
+		{0, 1, 44, 22, 30, hexRGB("#1a2442"), hexRGB("#9aaed2")},
+		{40, 2, 47, 16, 22, hexRGB("#121a32"), hexRGB("#b4c4e2")},
+		{90, 3, 50, 9, 16, hexRGB("#0a0f1e"), hexRGB("#c8d4ec")},
+	}
+	for _, rg := range ranges {
+		ridge := func(x float64) float64 { return rg.base - rg.amp*peaks(x+rg.off, rg.s, rg.l) }
+		snowLine := rg.base - rg.amp*0.55
+		for x := g.x0; x < g.x1; x++ {
+			top, facing := ridge(x), ridge(x-1)-ridge(x+1)
+			for y := max(g.y0, math.Floor(top)); y < lake; y++ {
+				c := mixRGB(rg.body, rgb{}, (y-top)/40)
+				if high := (snowLine-y)/(rg.amp*0.45) + (noise(x/2.5, y/2, 100)-0.5)*0.8; high > 0 {
+					c = mixRGB(c, rg.snow, clamp(high*1.5, 0, 1)*clamp(0.55+facing*0.5, 0.15, 1))
+				}
+				g.set(x, y, c)
+			}
+		}
+	}
+	water, glint := hexRGB("#0a1426"), hexRGB("#9fb4d8")
+	for y := max(lake, g.y0); y < g.y1; y++ {
+		for x := g.x0; x < g.x1; x++ {
+			c := mixRGB(g.get(x+math.Round(math.Sin(y*0.9+t*0.6)*0.6), lake-1-(y-lake)*1.8), water, 0.5+(y-lake)*0.02)
+			if math.Abs(math.Sin(x*0.2+y*0.9)*math.Sin(x*0.05-y*0.3)) > 0.97 {
+				c = mixRGB(c, glint, 0.25)
+			}
+			g.set(x, y, c)
 		}
 	}
 }
