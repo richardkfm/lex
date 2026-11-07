@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -28,11 +27,9 @@ import (
 type backdrop struct {
 	path string
 	// bmp is the picture, blurred as the settings ask; w and h are its
-	// own pixels, which "center" and "tile" show it at. art is one of
-	// Lex's abstract backgrounds instead, which the frame draws (art.go).
+	// own pixels, which "center" and "tile" show it at.
 	bmp  *ui.Bitmap
 	w, h int
-	art  *art
 	// err tells why the picture could not be shown.
 	err string
 }
@@ -71,14 +68,6 @@ func (a *App) background() *backdrop {
 	if path == "" {
 		return nil
 	}
-	if p, ok := patternOf(path); ok && p.art != nil {
-		// Drawn by the painter as it draws the window, in the theme's
-		// colors (drawBackground).
-		if a.bg == nil || a.bg.path != path {
-			a.bg, a.bgKey = &backdrop{path: path, art: p.art}, ""
-		}
-		return a.bg
-	}
 	blur := prefs.backgroundBlur()
 	key := fmt.Sprintf("%d|%s", blur, path)
 	if a.bgKey != key {
@@ -103,29 +92,17 @@ func (a *App) loadBackground(path string, blur int, key string, gen int64) {
 	case a.bgGen.Load() != gen:
 		return
 	default:
-		b.bmp = backdropBitmap(path, src.img, blur)
+		img := src.img
+		if blur > 0 {
+			img = blurred(img, float64(blur))
+		}
+		b.bmp = ui.NewBitmap(img)
 	}
 	a.laterService(func() {
 		if a.bgKey == key {
 			a.bg = b
 		}
 	})
-}
-
-// backdropBitmap returns the bitmap of a background's picture, blurred by
-// blur DIPs: a scene's pixel art (scenes.go) shows its pixels as squares
-// unless it is blurred.
-func backdropBitmap(path string, img *image.RGBA, blur int) *ui.Bitmap {
-	if p, ok := patternOf(path); ok && p.scene != nil {
-		if blur > 0 {
-			return ui.NewBitmap(blurredScene(img, blur))
-		}
-		return ui.NewBitmap(img).Pixelated()
-	}
-	if blur > 0 {
-		img = blurred(img, float64(blur))
-	}
-	return ui.NewBitmap(img)
 }
 
 // backgroundSource returns the picture at path, decoded and shrunk, from
@@ -138,8 +115,7 @@ func (a *App) backgroundSource(path string) *bgSource {
 	}
 	s := &bgSource{path: path}
 	if p, ok := patternOf(path); ok {
-		s.img = p.render(patternW, patternH, patternW/1920.0)
-		s.w, s.h = s.img.Bounds().Dx(), s.img.Bounds().Dy()
+		s.img, s.w, s.h = p.render(patternW, patternH, patternW/1920.0), patternW, patternH
 	} else {
 		s.img, s.w, s.h, s.err = decodePicture(path)
 	}
@@ -238,88 +214,6 @@ func boxBlur(src, dst []uint8, lines, length, r, stride, step int) {
 	}
 }
 
-// drawBackground draws the background over r: still, or, while the
-// settings move it, drifting slowly, a little larger than the window so
-// that its edges never show, and playing when it is one of Lex's scenes.
-// It moves while the window has the focus, as Ghostty's animated shaders
-// do by default, and keeps still while the system asks for less motion
-// or the window draws without a GPU, where drawing it all the time would
-// cost too much.
-func (a *App) drawBackground(p *ui.Painter, r ui.Rect, b *backdrop, fit string, th *theme) {
-	moves := a.backgroundMoves(p)
-	if moves {
-		// The drift's clock runs only while the background moves, so that
-		// it goes on from where it stopped, rather than jumping.
-		now := p.Now()
-		if !a.driftAt.IsZero() {
-			a.drift += min(max(now.Sub(a.driftAt), 0), 100*time.Millisecond)
-		}
-		a.driftAt = now
-		p.AnimationFrameRate(30)
-	} else {
-		a.driftAt = time.Time{}
-	}
-	shown := b
-	if pt, ok := patternOf(b.path); ok && (pt.art != nil || pt.scene != nil && moves) {
-		f := *b
-		if pt.art != nil {
-			t := artStill
-			if moves {
-				t = artTime(a.drift)
-			}
-			if a.art == nil {
-				a.art = &artView{async: true}
-			}
-			f.bmp = a.art.bitmap(pt.art, pt.id, int(r.W*p.Scale()), int(r.H*p.Scale()), th, t, prefs.backgroundBlur())
-			f.w, f.h = f.bmp.Size()
-		} else {
-			f.bmp = a.sceneBitmap(pt, a.drift)
-		}
-		shown = &f
-	}
-	if !moves {
-		drawBackdrop(p, r, shown, fit)
-		return
-	}
-	z, dx, dy := driftAt(a.drift, r)
-	p.Transform(ui.Scaling(z, z).Then(ui.Translation(dx, dy)), r.X+r.W/2, r.Y+r.H/2, func() {
-		drawBackdrop(p, r, shown, fit)
-	})
-}
-
-// backgroundMoves tells whether the background moves in this frame.
-func (a *App) backgroundMoves(p *ui.Painter) bool {
-	return prefs.MovingBackground && a.focusedWin && !p.Preferences().ReduceMotion && (p.Accelerated() || moveOnCPU)
-}
-
-// moveOnCPU moves the background without a GPU too, for tests.
-var moveOnCPU = false
-
-// The drift: the background, driftZoom larger than the window, pans
-// across the room that leaves on either side, along a Lissajous figure
-// whose sides take driftX and driftY to sweep, so that it seems to wander
-// rather than go back and forth: a few DIPs a second. It grows to that
-// size over driftGrow, from the still background.
-const (
-	driftZoom = 0.07
-	driftX    = 97 * time.Second
-	driftY    = 131 * time.Second
-	driftGrow = 3 * time.Second
-)
-
-// driftAt returns how the background over r is scaled, around r's
-// center, and then moved, d into the drift.
-func driftAt(d time.Duration, r ui.Rect) (zoom, dx, dy float32) {
-	grow := smooth(min(d.Seconds()/driftGrow.Seconds(), 1))
-	zoom = float32(1 + driftZoom*grow)
-	// What the zoom adds on either side, less a little, so that no edge
-	// shows at the turns.
-	mx, my := float64(r.W)*driftZoom*grow/2*0.9, float64(r.H)*driftZoom*grow/2*0.9
-	dx = float32(mx * math.Sin(2*math.Pi*d.Seconds()/driftX.Seconds()))
-	dy = float32(my * math.Sin(2*math.Pi*d.Seconds()/driftY.Seconds()))
-	return zoom, dx, dy
-}
-
 // drawBackdrop draws the picture over r as the settings fit it.
 func drawBackdrop(p *ui.Painter, r ui.Rect, b *backdrop, fit string) {
 	w, h := float32(b.w), float32(b.h)
@@ -394,46 +288,18 @@ func (s settings) backgroundFit() string {
 	return s.BackgroundFit
 }
 
-// patternThumb returns what draws the little picture of a pattern the
-// settings show: drawn once, or for an art, in the theme's colors, drawn
-// again as the theme changes.
-func (a *App) patternThumb(c *ui.Context, p pattern) func(*ui.Painter, float32, float32) *ui.Bitmap {
-	if p.art != nil {
-		th := prefs.themeFor(c.Theme().Dark)
-		return func(pt *ui.Painter, w, h float32) *ui.Bitmap {
-			if a.artThumbs == nil {
-				a.artThumbs = map[string]*artView{}
-			}
-			v := a.artThumbs[p.id]
-			if v == nil {
-				v = &artView{}
-				a.artThumbs[p.id] = v
-			}
-			// As though in a small window, shrunk.
-			return v.bitmap(p.art, p.id, 480, int(480*h/w), th, artStill, 0)
-		}
-	}
+// patternThumb returns the little picture of a pattern the settings show,
+// drawn once.
+func (a *App) patternThumb(p pattern) *ui.Bitmap {
 	if a.thumbs == nil {
 		a.thumbs = map[string]*ui.Bitmap{}
 	}
 	b, ok := a.thumbs[p.id]
 	if !ok {
 		b = ui.NewBitmap(p.render(104, 72, 0.5))
-		if p.scene != nil {
-			b.Pixelated()
-		}
 		a.thumbs[p.id] = b
 	}
-	return bitmapThumb(b)
-}
-
-// bitmapThumb returns what draws a thumbnail that is a bitmap, nil for
-// none yet.
-func bitmapThumb(b *ui.Bitmap) func(*ui.Painter, float32, float32) *ui.Bitmap {
-	if b == nil {
-		return nil
-	}
-	return func(*ui.Painter, float32, float32) *ui.Bitmap { return b }
+	return b
 }
 
 // customThumb returns the little picture of the user's own background,

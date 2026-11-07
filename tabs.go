@@ -254,6 +254,9 @@ func (a *App) tiles(c *ui.Context, k *colors, t *Tab) {
 }
 
 func paneProgram(p *Pane) program {
+	if p.anim != "" {
+		return animProgram(animationOf(p.anim))
+	}
 	if p.info.Idle || p.info.Program == "" {
 		return programOf(p.info.Shell)
 	}

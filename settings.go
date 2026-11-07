@@ -76,12 +76,9 @@ type settings struct {
 	NoNotify bool `json:"noNotify,omitempty"`
 
 	// Animate moves panes into place as they split, close and zoom, and
-	// slides tabs in and out (motion.go). MovingBackground drifts the
-	// background slowly and plays Lex's animated scenes (scenes.go). Both
-	// are off unless asked for, and nothing moves while the system asks
-	// for less motion.
-	Animate          bool `json:"animate,omitempty"`
-	MovingBackground bool `json:"movingBackground,omitempty"`
+	// slides tabs in and out (motion.go). It is off unless asked for, and
+	// nothing moves while the system asks for less motion.
+	Animate bool `json:"animate,omitempty"`
 
 	// OhMyPosh styles the prompt of new panes' shells with Oh My Posh, in
 	// Lex's theme, after the shells' own configuration (prompt.go).

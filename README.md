@@ -52,26 +52,24 @@ Linux and macOS.
   glyphs for programs.
 - **A background** behind the title bar and the panes, which turn
   translucent over it: one of four patterns Lex draws itself (Nebula,
-  Dunes, Dots, Lines), two abstract ones in the colors of the theme,
-  dark or light, which change with it (Ribbons, strands of silk waving
-  and twisting, and Contours, the lines of a map of heights), two scenes
-  of pixel art (Snowfall, a cabin among snowy pines, and Rainy City, a
-  skyline at night in the rain), or an image of your own, chosen with the
-  system's file dialog, which you fill, fit, tile or center. Set the
-  panes' opacity, and how much the background is dimmed (faded in a
-  light theme) and blurred. Lex keeps your image's path.
-- **Motion, on asking**: both off until you turn them on in the Look
-  section of the settings. *Animate panes and tabs* has panes glide into
-  place as they split, close and zoom, a new pane uncovered by the one
-  making room for it, and tabs slide in the way of the tab bar; a pane's
-  terminal keeps its size on the way and takes the new one once there,
-  so that its program redraws once. *Moving background* drifts the
-  background slowly, a little larger than the window, and plays Lex's
-  animated ones: the ribbons wave and twist, the contours shift as dunes
-  do, the snow falls and the chimney smokes, and the city's windows light
-  up and go dark in the rain. It moves while the window has the focus,
-  as Ghostty's animated shaders do, and keeps still without a GPU.
-  Nothing moves while the system asks for less motion.
+  Dunes, Dots, Lines), or an image of your own, chosen with the system's
+  file dialog, which you fill, fit, tile or center. Set the panes'
+  opacity, and how much the background is dimmed (faded in a light
+  theme) and blurred. Lex keeps your image's path.
+- **Motion, on asking**: off until you turn on *Animate panes and tabs*
+  in the Look section of the settings. Panes then glide into place as
+  they split, close and zoom, a new pane uncovered by the one making room
+  for it, and tabs slide in the way of the tab bar; a pane's terminal
+  keeps its size on the way and takes the new one once there, so that its
+  program redraws once. Nothing moves while the system asks for less
+  motion.
+- **Animation panes**: the palette opens a pane beside the focused one
+  that plays a small scene in place of a terminal (*Animation: Sahara*,
+  *Neon City*, *Solarpunk*, *Helix*), which Lex draws on the terminal's
+  grid, two pixels to a cell and characters for the details, as terminal
+  art does. The arrows in its header switch scenes, it closes and zooms
+  as any pane, and the layout keeps it. It plays while it shows, and
+  holds still while the system asks for less motion.
 - **An Oh My Posh prompt**, on asking (Text section): new panes'
   shells load your own configuration, and then
   [Oh My Posh](https://ohmyposh.dev), which you install, in Lex's theme:
@@ -285,7 +283,7 @@ of the run ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 | `state.go` | tabs, the tree of splits, panes, saving and restoring the layout |
 | `view.go`, `tabs.go`, `host.go`, `commands.go`, `settingsview.go` | the interface: title bar, tabs, panes, host popover, menus, palette and settings panel |
 | `motion.go` | how panes and tabs move, when the settings animate them |
-| `background.go`, `patterns.go`, `art.go`, `scenes.go` | the background: a picture, Lex's patterns, its abstract ones in the theme's colors, the scenes of pixel art, and its drift |
+| `animations.go`, `animscenes.go` | animation panes: the grid they are drawn on, and the scenes |
 | `programs.go` | how programs show: names and glyphs |
 | `style.go`, `settings.go` | colors, fonts, terminal themes; the settings and how they apply |
 | `internal/rex` | the session server and its client: PTYs, foreground processes, headless screens, the socket protocol, and the shells' Oh My Posh prompt (`prompt.go`, `prompt/`) |

@@ -30,8 +30,7 @@ func (a *App) view(c *ui.Context) {
 	// faintly through the panes, dimmed toward black, or in a light theme
 	// toward its own color.
 	bg := a.background()
-	a.bgShown = bg != nil && (bg.bmp != nil || bg.art != nil)
-	th := prefs.themeFor(c.Theme().Dark)
+	a.bgShown = bg != nil && bg.bmp != nil
 	if a.bgShown {
 		dim := ui.RGBA(0, 0, 0, prefs.backgroundDim())
 		if !c.Theme().Dark {
@@ -39,7 +38,7 @@ func (a *App) view(c *ui.Context) {
 		}
 		fit := prefs.backgroundFit()
 		root.Draw(func(p *ui.Painter, r ui.Rect) {
-			a.drawBackground(p, r, bg, fit, th)
+			drawBackdrop(p, r, bg, fit)
 			p.Fill(r, dim, 0)
 		})
 	} else {
@@ -429,6 +428,27 @@ func (a *App) paneCard(c *ui.Context, k *colors, t *Tab, p *Pane, r cell) ui.Ele
 		inner.Children(func() {
 			a.paneHeader(c, k, t, p, focused, hovered, tn)
 			body := ui.Box(c).Grow(1).MinHeight(0).Padding(0, 5, 6, 5)
+			if p.anim != "" {
+				// An animation, in place of a terminal. It takes the
+				// keyboard focus from the terminal that had it, as the
+				// pane takes the tab's, which that terminal would else
+				// take back.
+				th := prefs.themeFor(c.Theme().Dark)
+				body.Children(func() {
+					view := ui.Box(c).Fill().Radius(3).Clip().Focusable().FocusRing(false).Role(ui.RoleImage).
+						Label(animationOf(p.anim).name).
+						Draw(func(pt *ui.Painter, r ui.Rect) { a.drawAnimation(pt, r, p, th) })
+					if a.focusReq == p && a.tab() == t {
+						view.Focus()
+						a.focusReq = nil
+					}
+					if view.Focused() && t.Focus != p {
+						t.setFocus(p)
+						a.changed()
+					}
+				})
+				return
+			}
 			body.Children(func() {
 				if p.term == nil {
 					return
@@ -460,10 +480,7 @@ func (a *App) paneCard(c *ui.Context, k *colors, t *Tab, p *Pane, r cell) ui.Ele
 // and its buttons.
 func (a *App) paneHeader(c *ui.Context, k *colors, t *Tab, p *Pane, focused, hovered bool, tn tint) {
 	name, detail := p.label()
-	prog := programOf(p.info.Program)
-	if p.info.Idle || p.info.Program == "" {
-		prog = programOf(p.info.Shell)
-	}
+	prog := paneProgram(p)
 	h := ui.Row(c).Height(headerH).Padding(0, 8, 0, 12).Gap(7).AlignItems(ui.Center).MinWidth(0)
 	if tn.header {
 		h.Background(tn.col.Alpha(map[bool]float32{true: 0.12, false: 0.10}[c.Theme().Dark]))
@@ -499,6 +516,16 @@ func (a *App) paneHeader(c *ui.Context, k *colors, t *Tab, p *Pane, focused, hov
 			if !show {
 				return
 			}
+			if p.anim != "" {
+				// The animation before and after this one.
+				if glyphButton(c, k, "‹", "Previous Animation").Clicked() {
+					a.cycleAnimation(p, -1)
+				}
+				if glyphButton(c, k, "›", "Next Animation").Clicked() {
+					a.cycleAnimation(p, 1)
+				}
+				ui.Box(c).Size(1, 14).Margin(0, 4).Background(k.sep)
+			}
 			if iconButton(c, k, "view-split-left-right", "Split Right", 26, 16).Tooltip(tip("Split Right", &cmdSplitRight)).Clicked() {
 				t.setFocus(p)
 				a.split(false)
@@ -520,6 +547,26 @@ func (a *App) paneHeader(c *ui.Context, k *colors, t *Tab, p *Pane, focused, hov
 			}
 		})
 	})
+}
+
+// glyphButton is a borderless button of a character, as iconButton is of
+// an icon; label names it for screen readers and its tooltip.
+func glyphButton(c *ui.Context, k *colors, ch, label string) ui.Element {
+	b := ui.Box(c.Key(label)).Size(22, 26).Center().Radius(buttonR).Cursor(ui.CursorPointer).Role(ui.RoleButton).Label(label).Tooltip(label)
+	if b.Pressed() {
+		b.Background(k.pressed)
+	} else if b.Hovered() {
+		b.Background(k.hover)
+	}
+	b.Transition(ui.ElementTransition{Colors: true, Duration: 120 * time.Millisecond})
+	col := k.iconMuted
+	if b.Hovered() {
+		col = k.text
+	}
+	b.Children(func() {
+		ui.Text(c, ch).FontSize(17).FontWeight(500).TextColor(col)
+	})
+	return b
 }
 
 // tintChip names the kind of a tinted pane in its header: a dot of its

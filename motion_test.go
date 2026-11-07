@@ -91,9 +91,8 @@ func TestFollowTab(t *testing.T) {
 	}
 }
 
-// TestMotionSettings turns the animations, the moving background and the
-// Oh My Posh prompt on from the settings, all off until asked for, and
-// new panes ask the server for the prompt.
+// TestMotionSettings turns the animations and the Oh My Posh prompt on
+// from the settings, both off until asked for.
 func TestMotionSettings(t *testing.T) {
 	saved := prefs
 	t.Cleanup(func() { prefs = saved })
@@ -101,15 +100,14 @@ func TestMotionSettings(t *testing.T) {
 	a, tt := newTestApp(t)
 	tt.SetSize(1000, 1600) // the whole panel in view
 	tt.Frame()
-	if prefs.Animate || prefs.MovingBackground || prefs.OhMyPosh || prefs.prompt() != "" {
+	if prefs.Animate || prefs.OhMyPosh || prefs.prompt() != "" {
 		t.Fatalf("on by default: %+v", prefs)
 	}
 	click := clicker(t, tt)
 	click("Settings")
 	click("Animate panes and tabs")
-	click("Moving background")
-	if !prefs.Animate || !prefs.MovingBackground {
-		t.Errorf("after the switches: animate %v, moving background %v", prefs.Animate, prefs.MovingBackground)
+	if !prefs.Animate {
+		t.Errorf("after the switch: animate %v", prefs.Animate)
 	}
 	click("Text")
 	click("Oh My Posh prompt")

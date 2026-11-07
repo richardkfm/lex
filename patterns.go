@@ -15,14 +15,10 @@ import (
 const patternPrefix = "lex:"
 
 // A pattern is one of Lex's backgrounds: draw paints it w×h pixels, at
-// scale pixels for each of a 1920 pixels wide screen's; or it is an
-// abstract art, drawn in the theme's colors (art.go), or a scene of pixel
-// art (scenes.go), which both play while the background moves.
+// scale pixels for each of a 1920 pixels wide screen's.
 type pattern struct {
 	id, name string
 	draw     func(f *canvas, scale float64)
-	art      *art
-	scene    *scene
 }
 
 var patterns = []pattern{
@@ -30,10 +26,6 @@ var patterns = []pattern{
 	{id: "dunes", name: "Dunes", draw: drawDunes},
 	{id: "dots", name: "Dots", draw: drawDots},
 	{id: "lines", name: "Lines", draw: drawLines},
-	{id: "ribbons", name: "Ribbons", art: ribbons},
-	{id: "contours", name: "Contours", art: contours},
-	{id: "snowfall", name: "Snowfall", scene: snowfall},
-	{id: "rain", name: "Rainy City", scene: rainyCity},
 }
 
 // patternOf returns the pattern a background names, if it names one.
@@ -54,19 +46,8 @@ func patternOf(background string) (pattern, bool) {
 // window, which it covers: larger than full HD, for the larger screens.
 const patternW, patternH = 2560, 1440
 
-// render paints the pattern w×h pixels, an art in the colors of the
-// default theme, or a scene's still frame, at its own size.
+// render paints the pattern w×h pixels.
 func (p pattern) render(w, h int, scale float64) *image.RGBA {
-	if p.scene != nil {
-		return p.scene.render(sceneStill)
-	}
-	if p.art != nil {
-		f := newRaster(w, h)
-		pal := paletteOf(themeByID(defaultDarkTheme))
-		p.art.base(f, pal)
-		p.art.frame(f, artStill, pal)
-		return f.img
-	}
 	f := newCanvas(w, h)
 	p.draw(f, scale)
 	return f.rgba()

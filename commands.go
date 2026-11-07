@@ -67,7 +67,7 @@ var paletteCommands = append([]*command{
 	&cmdGrowLeft, &cmdGrowRight, &cmdGrowUp, &cmdGrowDown,
 	&cmdSettings, &cmdBigger, &cmdSmaller, &cmdActualSize, &cmdTints,
 	&cmdClearScroll, &cmdRestart, &cmdEndAll,
-}, themeCommands...)
+}, append(animationCommands, themeCommands...)...)
 
 // themeCommands choose each theme, as its card in the settings does,
 // and the palette lists them after the others.
@@ -170,6 +170,12 @@ func (a *App) menu() *mygo.Menu {
 				a.do(func() { a.pickTheme(t) })
 			}})
 	}
+	var animationItems []*mygo.MenuItem
+	for _, cmd := range animationCommands {
+		it := item(cmd)
+		it.Label = cmd.Title[len("Animation: "):]
+		animationItems = append(animationItems, it)
+	}
 	return mygo.NewMenu([]*mygo.MenuItem{
 		{Role: mygo.RoleAppMenu},
 		{Label: "Shell", Submenu: []*mygo.MenuItem{
@@ -177,6 +183,7 @@ func (a *App) menu() *mygo.Menu {
 			mygo.Separator(),
 			item(&cmdSplitRight),
 			item(&cmdSplitDown),
+			{Label: "Split with Animation", Submenu: animationItems},
 			mygo.Separator(),
 			item(&cmdClosePane),
 			item(&cmdCloseTab),
