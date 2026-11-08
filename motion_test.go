@@ -92,7 +92,8 @@ func TestFollowTab(t *testing.T) {
 }
 
 // TestMotionSettings turns the animations and the Oh My Posh prompt on
-// from the settings, both off until asked for.
+// from the settings, both off until asked for, and the scenes' theme
+// colors off, on until asked otherwise.
 func TestMotionSettings(t *testing.T) {
 	saved := prefs
 	t.Cleanup(func() { prefs = saved })
@@ -108,6 +109,11 @@ func TestMotionSettings(t *testing.T) {
 	click("Animate panes and tabs")
 	if !prefs.Animate {
 		t.Errorf("after the switch: animate %v", prefs.Animate)
+	}
+	// The scenes take the theme's colors unless asked not to.
+	click("Scenes in theme colors")
+	if !prefs.NaturalScenes {
+		t.Errorf("after the switch: natural scenes %v", prefs.NaturalScenes)
 	}
 	click("Text")
 	click("Oh My Posh prompt")

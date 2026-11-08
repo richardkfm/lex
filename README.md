@@ -68,7 +68,12 @@ Linux and macOS.
   *Neon Grid*, *Garden City*, *Helix*, *Aurora*), which Lex draws on the
   terminal's grid, eight pixels to a cell, as braille's dots, and
   characters for the details, as terminal art does. A larger pane shows
-  more of the place: more sky, more dunes, more towers. The arrows in its
+  more of the place: more sky, more dunes, more towers. The places take
+  the colors of the theme: sky and shade its second color, their subject
+  its accent, lamps its yellow, each keeping its own light, so they stay
+  dark in a light theme too (Settings ▸ Look ▸ Motion ▸ *Scenes in theme
+  colors*, on unless turned off; Helix is in the theme's colors either
+  way). The arrows in its
   header switch scenes, it closes and zooms as any pane, and the layout
   keeps it. It plays while it shows, and holds still while the system
   asks for less motion.
@@ -285,7 +290,7 @@ of the run ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 | `state.go` | tabs, the tree of splits, panes, saving and restoring the layout |
 | `view.go`, `tabs.go`, `host.go`, `commands.go`, `settingsview.go` | the interface: title bar, tabs, panes, host popover, menus, palette and settings panel |
 | `motion.go` | how panes and tabs move, when the settings animate them |
-| `animations.go`, `animscenes.go` | animation panes: the grid they are drawn on, and the scenes |
+| `animations.go`, `animscenes.go`, `animcolors.go` | animation panes: the grid they are drawn on, the scenes, and their theme colors |
 | `programs.go` | how programs show: names and glyphs |
 | `style.go`, `settings.go` | colors, fonts, terminal themes; the settings and how they apply |
 | `internal/rex` | the session server and its client: PTYs, foreground processes, headless screens, the socket protocol, and the shells' Oh My Posh prompt (`prompt.go`, `prompt/`) |

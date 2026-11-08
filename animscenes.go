@@ -50,26 +50,27 @@ func duneShape(u float64) float64 {
 	return 1 - smooth((u-0.68)/0.32)
 }
 
-func drawDuneSea(g *grid, t float64, _ animPalette) {
+func drawDuneSea(g *grid, t float64, pal animPalette) {
+	ink := pal.inks(duneSeaRoles)
 	const hz = 36.0
 	var (
-		night, dusk = hexRGB("#120e2c"), hexRGB("#2b1b4a")
-		crest, sand = hexRGB("#ffe2b8"), hexRGB("#ffe6c0")
-		horizon     = hexRGB("#f6a879")
+		night, dusk = ink("#120e2c"), ink("#2b1b4a")
+		crest, sand = ink("#ffe2b8"), ink("#ffe6c0")
+		horizon     = ink("#f6a879")
 	)
-	g.sky(hz+4, night, dusk, hexRGB("#6a2c5a"), hexRGB("#c4566a"), hexRGB("#f08f63"), hexRGB("#ffd08a"))
-	g.stars(t, 0.07, 5, func(float64) float64 { return 18 }, hexRGB("#3a2f62"), hexRGB("#f2e9ff"))
-	g.glow(104, 9, 9, hexRGB("#9a90c8"), 0.3)
-	g.disc(104, 9, 3.6, hexRGB("#f6efd6"), 1)
+	g.sky(hz+4, night, dusk, ink("#6a2c5a"), ink("#c4566a"), ink("#f08f63"), ink("#ffd08a"))
+	g.stars(t, 0.07, 5, func(float64) float64 { return 18 }, ink("#3a2f62"), ink("#f2e9ff"))
+	g.glow(104, 9, 9, ink("#9a90c8"), 0.3)
+	g.disc(104, 9, 3.6, ink("#f6efd6"), 1)
 	g.disc(105.6, 8.2, 3.3, mixRGB(dusk, night, 0.5), 1)
 
 	const sx, sy = 40.0, hz - 2
 	for k := range 4 {
 		fk := float64(k)
-		g.ring(sx, sy, 15+fk*5+math.Sin(t*0.8+fk)*0.7, hexRGB("#ffd9a0"), 0.09-fk*0.018)
+		g.ring(sx, sy, 15+fk*5+math.Sin(t*0.8+fk)*0.7, ink("#ffd9a0"), 0.09-fk*0.018)
 	}
-	g.glow(sx, sy, 26, hexRGB("#ffbf7a"), 0.45)
-	sunTop, sunBottom := hexRGB("#fff0c4"), hexRGB("#ff9a5c")
+	g.glow(sx, sy, 26, ink("#ffbf7a"), 0.45)
+	sunTop, sunBottom := ink("#fff0c4"), ink("#ff9a5c")
 	for y := math.Floor(sy - 11); y <= sy+11; y++ {
 		for x := math.Floor(sx - 11); x <= sx+11; x++ {
 			if d := math.Hypot(x+0.5-sx, y+0.5-sy); d <= 11 {
@@ -84,10 +85,10 @@ func drawDuneSea(g *grid, t float64, _ animPalette) {
 		lit, shade        rgb
 		haze              float64
 	}{
-		{39, 3, 34, 0.1, hexRGB("#eaa27d"), hexRGB("#c47a62"), 0.45},
-		{44, 5, 46, 0.55, hexRGB("#e0905f"), hexRGB("#a85f45"), 0.28},
-		{51, 7, 60, 0.3, hexRGB("#d27b45"), hexRGB("#8c4a33"), 0.12},
-		{60, 9, 84, 0.8, hexRGB("#c1662f"), hexRGB("#6e3826"), 0},
+		{39, 3, 34, 0.1, ink("#eaa27d"), ink("#c47a62"), 0.45},
+		{44, 5, 46, 0.55, ink("#e0905f"), ink("#a85f45"), 0.28},
+		{51, 7, 60, 0.3, ink("#d27b45"), ink("#8c4a33"), 0.12},
+		{60, 9, 84, 0.8, ink("#c1662f"), ink("#6e3826"), 0},
 	}
 	for k, l := range layers {
 		fk := float64(k)
@@ -135,7 +136,7 @@ func drawDuneSea(g *grid, t float64, _ animPalette) {
 			}
 		}
 	}
-	gust := hexRGB("#c1662f")
+	gust := ink("#c1662f")
 	for i := range 3 {
 		if s := wrap(t*0.4+float64(i)*1.9, 6); s < 2 {
 			x := g.x0 + wrap(g.wd()*hash(i, int(math.Floor(t/15)), 9)+s*18, g.wd())
@@ -150,15 +151,16 @@ func drawDuneSea(g *grid, t float64, _ animPalette) {
 // mirrors it all.
 var neonGridAnim = &animation{id: "neon-grid", name: "Neon Grid", fps: 20, tile: ui.Hex("#c2187a"), draw: drawNeonGrid}
 
-func drawNeonGrid(g *grid, t float64, _ animPalette) {
+func drawNeonGrid(g *grid, t float64, pal animPalette) {
+	ink := pal.inks(neonGridRoles)
 	const street = 52.0
 	var (
-		pink, cyan, amber = hexRGB("#ff3fa8"), hexRGB("#3fd9ff"), hexRGB("#ffb347")
-		red, dusk         = hexRGB("#ff3045"), hexRGB("#241a40")
-		lit               = [4]rgb{cyan, hexRGB("#ff4fd8"), amber, hexRGB("#c8c0ff")}
+		pink, cyan, amber = ink("#ff3fa8"), ink("#3fd9ff"), ink("#ffb347")
+		red, dusk         = ink("#ff3045"), ink("#241a40")
+		lit               = [4]rgb{cyan, ink("#ff4fd8"), amber, ink("#c8c0ff")}
 	)
-	g.sky(street, hexRGB("#04040f"), hexRGB("#0a0920"), hexRGB("#1a0f33"), hexRGB("#2e1240"))
-	g.stars(t, 0.03, 15, func(float64) float64 { return 12 }, hexRGB("#231d45"), hexRGB("#9f96d9"))
+	g.sky(street, ink("#04040f"), ink("#0a0920"), ink("#1a0f33"), ink("#2e1240"))
+	g.stars(t, 0.03, 15, func(float64) float64 { return 12 }, ink("#231d45"), ink("#9f96d9"))
 	for y := max(30, g.y0); y < street; y++ {
 		for x := g.x0; x < g.x1; x++ {
 			g.mix(x, y, mixRGB(pink, cyan, noise(x/30, t*0.1, 3)), 0.12*(y-30)/22)
@@ -201,7 +203,7 @@ func drawNeonGrid(g *grid, t float64, _ animPalette) {
 			}
 		})
 	}
-	towers(31, 5, 11, 12, 30, hexRGB("#161230"), 0.35, 3)
+	towers(31, 5, 11, 12, 30, ink("#161230"), 0.35, 3)
 
 	// The hologram: a wire octahedron, turning, ringed, over the towers.
 	const hx, hy, hr, tilt = 92.0, 13.0, 7.5, 0.45
@@ -218,7 +220,7 @@ func drawNeonGrid(g *grid, t float64, _ animPalette) {
 	if hash(int(math.Floor(t*12)), 0, 33) < 0.07 {
 		flick = 0.35
 	}
-	front, back := hexRGB("#9ff6ff"), hexRGB("#ff7ad9")
+	front, back := ink("#9ff6ff"), ink("#ff7ad9")
 	for _, e := range [12][2]int{{0, 2}, {0, 3}, {0, 4}, {0, 5}, {1, 2}, {1, 3}, {1, 4}, {1, 5}, {2, 4}, {4, 3}, {3, 5}, {5, 2}} {
 		p, q := pts[e[0]], pts[e[1]]
 		c := back
@@ -236,18 +238,18 @@ func drawNeonGrid(g *grid, t float64, _ animPalette) {
 		}
 		g.splat(hx+12*math.Cos(an), hy+9+2.4*math.Sin(an), back, a)
 	}
-	towers(41, 7, 15, 22, 40, hexRGB("#0b0918"), 0.75, 2)
+	towers(41, 7, 15, 22, 40, ink("#0b0918"), 0.75, 2)
 
 	roads := []struct {
 		y, dir     float64
 		head, tail rgb
 		v          float64
 	}{
-		{42, 1, hexRGB("#fff4d6"), amber, 24},
-		{46, -1, hexRGB("#ff8a8a"), red, 18},
-		{49, 1, hexRGB("#c8faff"), cyan, 32},
+		{42, 1, ink("#fff4d6"), amber, 24},
+		{46, -1, ink("#ff8a8a"), red, 18},
+		{49, 1, ink("#c8faff"), cyan, 32},
 	}
-	asphalt := hexRGB("#2a2340")
+	asphalt := ink("#2a2340")
 	for k, r := range roads {
 		fk := float64(k)
 		ry := func(x float64) float64 { return r.y + 1.8*math.Sin(x*0.03+fk*2) }
@@ -264,7 +266,7 @@ func drawNeonGrid(g *grid, t float64, _ animPalette) {
 		}
 	}
 
-	wet := hexRGB("#07060f")
+	wet := ink("#07060f")
 	for y := max(street, g.y0); y < g.y1; y++ {
 		d := y - street
 		for x := g.x0; x < g.x1; x++ {
@@ -272,7 +274,7 @@ func drawNeonGrid(g *grid, t float64, _ animPalette) {
 			g.set(x, y, mixRGB(g.get(x+rip, street-1-d*1.6), wet, 0.45+d*0.035))
 		}
 	}
-	drop := hexRGB("#9fb4e8")
+	drop := ink("#9fb4e8")
 	for k := range max(1, int(math.Round(5*g.wd()/128))) {
 		ph := t*1.2 + float64(k)*0.37
 		s := wrap(ph, 1.8)
@@ -282,7 +284,7 @@ func drawNeonGrid(g *grid, t float64, _ animPalette) {
 			g.splat(x+s*4*math.Cos(an), y+s*1.1*math.Sin(an), drop, 0.4*(1-s/1.8))
 		}
 	}
-	rain := hexRGB("#8fa3d6")
+	rain := ink("#8fa3d6")
 	for k := range int(140 * g.area()) {
 		v := 70 + 50*hash(k, 1, 36)
 		x := g.x0 + wrap(g.wd()*hash(k, 2, 36)-t*v*0.25, g.wd())
@@ -313,22 +315,23 @@ func (tw gardenTower) halfWidth(y, canal float64) float64 {
 	return tw.w / 2 * (0.82 + 0.18*(y-tw.top)/(canal-tw.top))
 }
 
-func drawGardenCity(g *grid, t float64, _ animPalette) {
+func drawGardenCity(g *grid, t float64, pal animPalette) {
+	ink := pal.inks(gardenCityRoles)
 	const canal, sx, sy = 52.0, 86.0, 42.0
 	var (
-		gold, teal         = hexRGB("#ffcc66"), hexRGB("#5ff0e0")
-		haze, green        = hexRGB("#e3a258"), hexRGB("#6cc46f")
-		ivy, white         = hexRGB("#2e8b57"), rgb{255, 255, 255}
-		stone, stoneShadow = hexRGB("#f4ecd8"), hexRGB("#5f7f88")
-		leafDark, leafLit  = hexRGB("#1f6a45"), hexRGB("#7fd47a")
-		sunlit             = hexRGB("#ffe08a")
+		gold, teal         = ink("#ffcc66"), ink("#5ff0e0")
+		haze, green        = ink("#e3a258"), ink("#6cc46f")
+		ivy, white         = ink("#2e8b57"), rgb{255, 255, 255}
+		stone, stoneShadow = ink("#f4ecd8"), ink("#5f7f88")
+		leafDark, leafLit  = ink("#1f6a45"), ink("#7fd47a")
+		sunlit             = ink("#ffe08a")
 	)
-	g.sky(canal, hexRGB("#0a2231"), hexRGB("#103d4a"), hexRGB("#1d6668"), hexRGB("#5b9c86"), haze, hexRGB("#ffd58a"))
-	g.stars(t, 0.06, 131, func(float64) float64 { return 14 }, hexRGB("#1a4a58"), hexRGB("#d8fff6"))
+	g.sky(canal, ink("#0a2231"), ink("#103d4a"), ink("#1d6668"), ink("#5b9c86"), haze, ink("#ffd58a"))
+	g.stars(t, 0.06, 131, func(float64) float64 { return 14 }, ink("#1a4a58"), ink("#d8fff6"))
 
 	// The sun, low behind the towers, its rays through the haze.
-	g.glow(sx, sy, 46, hexRGB("#ffbf6a"), 0.5)
-	ray := hexRGB("#ffe2a0")
+	g.glow(sx, sy, 46, ink("#ffbf6a"), 0.5)
+	ray := ink("#ffe2a0")
 	for y := g.y0; y < sy; y++ {
 		for x := g.x0; x < g.x1; x++ {
 			d := math.Hypot(x-sx, y-sy)
@@ -341,10 +344,10 @@ func drawGardenCity(g *grid, t float64, _ animPalette) {
 			}
 		}
 	}
-	g.disc(sx, sy, 6.5, hexRGB("#fff3cc"), 1)
+	g.disc(sx, sy, 6.5, ink("#fff3cc"), 1)
 
 	// The far city, hazy, green on its roofs.
-	far, farLit := hexRGB("#2a6466"), hexRGB("#5b9c86")
+	far, farLit := ink("#2a6466"), ink("#5b9c86")
 	g.spans(-2, func(i int) (float64, float64) {
 		return 3 + math.Floor(4*hash(i, 1, 134)), 1 + math.Floor(3*hash(i, 4, 134))
 	}, func(i int, x, w float64) {
@@ -370,7 +373,7 @@ func drawGardenCity(g *grid, t float64, _ animPalette) {
 
 	// The maglev's track, on pillars, between the towers' feet.
 	track := func(x float64) float64 { return 45 + 2.2*math.Sin(x*0.045+0.6) }
-	rail, pillar := hexRGB("#cfe6e0"), hexRGB("#9fbcb6")
+	rail, pillar := ink("#cfe6e0"), ink("#9fbcb6")
 	for x := g.x0; x < g.x1; x++ {
 		g.set(x, track(x)+1, rail)
 		if wrap(x, 13) == 6 {
@@ -399,8 +402,8 @@ func drawGardenCity(g *grid, t float64, _ animPalette) {
 		}
 		towers = append(towers, gardenTower{cx, 7 + math.Floor(5*hash(-k, 2, 149)), 9 + math.Floor(11*hash(-k, 3, 149)), 5 + 2*k})
 	}
-	crownDark, crownLit, sail, beacon := hexRGB("#174d34"), hexRGB("#ffd98a"), hexRGB("#d8e6e2"), hexRGB("#ff5a5a")
-	fallFoam, fall, spray := hexRGB("#e6fbff"), hexRGB("#7fd6e6"), hexRGB("#c8f6ff")
+	crownDark, crownLit, sail, beacon := ink("#174d34"), ink("#ffd98a"), ink("#d8e6e2"), ink("#ff5a5a")
+	fallFoam, fall, spray := ink("#e6fbff"), ink("#7fd6e6"), ink("#c8f6ff")
 	for _, tw := range towers {
 		s := float64(tw.s)
 		lit := 1.0 // the side the sun lights
@@ -517,7 +520,7 @@ func drawGardenCity(g *grid, t float64, _ animPalette) {
 			bridges = append(bridges, bridge{min(i, j), max(i, j), ya, ya + 6*(hash(towers[i].s, 6, 150)-0.5)})
 		}
 	}
-	deck, deckShadow := hexRGB("#efe6d2"), hexRGB("#9fb5b0")
+	deck, deckShadow := ink("#efe6d2"), ink("#9fb5b0")
 	for k, b := range bridges {
 		A, B := towers[b.i], towers[b.j]
 		x0, x1 := A.cx+A.halfWidth(b.ya, canal)+1, B.cx-B.halfWidth(b.yb, canal)-1
@@ -543,7 +546,7 @@ func drawGardenCity(g *grid, t float64, _ animPalette) {
 
 	// The maglev, streaking through with its trail of light.
 	head := g.x0 + wrap(t*26, g.wd()+90) - 30
-	nose, cabin, trailEnd := hexRGB("#f2fffd"), hexRGB("#bfeee6"), hexRGB("#1d6668")
+	nose, cabin, trailEnd := ink("#f2fffd"), ink("#bfeee6"), ink("#1d6668")
 	for j := range 34 {
 		fj := float64(j)
 		x := head - fj
@@ -558,10 +561,10 @@ func drawGardenCity(g *grid, t float64, _ animPalette) {
 			g.splat(x, y-0.4, mixRGB(teal, trailEnd, (fj-12)/22), 0.7*(1-(fj-12)/22))
 		}
 	}
-	g.glow(head+1, track(head)-0.5, 4, hexRGB("#e8fffb"), 0.4)
+	g.glow(head+1, track(head)-0.5, 4, ink("#e8fffb"), 0.4)
 
 	// The canal: everything mirrored, rippling, the sun glittering on it.
-	water, glint, ripple := hexRGB("#0c3440"), hexRGB("#fff0c0"), hexRGB("#9fe8e0")
+	water, glint, ripple := ink("#0c3440"), ink("#fff0c0"), ink("#9fe8e0")
 	for y := max(canal, g.y0); y < g.y1; y++ {
 		d := y - canal
 		f, sy2 := min(d/12, 1), canal-1-d*1.6
@@ -580,7 +583,7 @@ func drawGardenCity(g *grid, t float64, _ animPalette) {
 			g.set(x, y, c)
 		}
 	}
-	quay := hexRGB("#efe2c4")
+	quay := ink("#efe2c4")
 	for x := g.x0; x < g.x1; x++ {
 		g.mix(x, canal, quay, 0.45)
 	}
@@ -593,7 +596,7 @@ func drawGardenCity(g *grid, t float64, _ animPalette) {
 	}
 
 	// Leaves framing the bottom corners, rim-lit by the sun.
-	shadeDark, shadeLit, rim := hexRGB("#0b211a"), hexRGB("#163b2a"), mixRGB(hexRGB("#1f4a33"), hexRGB("#ffcf7a"), 0.5)
+	shadeDark, shadeLit, rim := ink("#0b211a"), ink("#163b2a"), mixRGB(ink("#1f4a33"), ink("#ffcf7a"), 0.5)
 	leaves := func(cx, cy, r, sway float64) {
 		for y := math.Floor(cy - r); y < min(g.y1, cy+r+1); y++ {
 			for x := math.Floor(cx - r*1.4); x <= cx+r*1.4; x++ {
@@ -614,7 +617,7 @@ func drawGardenCity(g *grid, t float64, _ animPalette) {
 	leaves(g.x1-4, g.y1-4, 10, math.Sin(t*0.8+2)*0.6)
 
 	// Spores of light drifting up, and birds now and then.
-	sporeGold, sporeTeal := hexRGB("#ffe08a"), hexRGB("#9ff8ea")
+	sporeGold, sporeTeal := ink("#ffe08a"), ink("#9ff8ea")
 	for k := range int(16 * g.area()) {
 		fk := float64(k)
 		if math.Sin(t*2+fk) <= -0.3 {
@@ -629,7 +632,7 @@ func drawGardenCity(g *grid, t float64, _ animPalette) {
 		col, row := cellOf(x, y)
 		g.char(col, row, '·', c)
 	}
-	g.flock(t, 19, 8, 4, 6, 1.4, hexRGB("#0f3340"))
+	g.flock(t, 19, 8, 4, 6, 1.4, ink("#0f3340"))
 }
 
 // Helix: a double helix turning, its base pairs lettered as they face
@@ -772,10 +775,11 @@ func drawHelix(g *grid, t float64, pal animPalette) {
 // and a still lake that mirrors them, and a shooting star now and then.
 var auroraAnim = &animation{id: "aurora", name: "Aurora", fps: 15, tile: ui.Hex("#1f8f6a"), draw: drawAurora}
 
-func drawAurora(g *grid, t float64, _ animPalette) {
+func drawAurora(g *grid, t float64, pal animPalette) {
+	ink := pal.inks(auroraRoles)
 	const lake = 50.0
-	g.sky(lake, hexRGB("#02040c"), hexRGB("#061028"), hexRGB("#0b1a3a"), hexRGB("#12284c"))
-	g.stars(t, 0.08, 91, func(float64) float64 { return 40 }, hexRGB("#24345e"), hexRGB("#e8f0ff"))
+	g.sky(lake, ink("#02040c"), ink("#061028"), ink("#0b1a3a"), ink("#12284c"))
+	g.stars(t, 0.08, 91, func(float64) float64 { return 40 }, ink("#24345e"), ink("#e8f0ff"))
 	if ms := wrap(t, 12); ms < 0.7 {
 		n := int(math.Floor(t / 12))
 		x0, y0 := g.x0+20+(g.wd()-48)*hash(n, 1, 92), 3+6*hash(n, 2, 92)
@@ -784,7 +788,7 @@ func drawAurora(g *grid, t float64, _ animPalette) {
 			g.splat(x0-ms*40+fj*2.2, y0+ms*14-fj*0.8, rgb{255, 255, 255}, 1-fj/10)
 		}
 	}
-	violet, green, mint := hexRGB("#8a5cff"), hexRGB("#3cff9d"), hexRGB("#b8ffe0")
+	violet, green, mint := ink("#8a5cff"), ink("#3cff9d"), ink("#b8ffe0")
 	for c := range 3 {
 		fc := float64(c)
 		strength := 0.75
@@ -817,9 +821,9 @@ func drawAurora(g *grid, t float64, _ animPalette) {
 		base, amp, l float64
 		body, snow   rgb
 	}{
-		{0, 1, 44, 22, 30, hexRGB("#1a2442"), hexRGB("#9aaed2")},
-		{40, 2, 47, 16, 22, hexRGB("#121a32"), hexRGB("#b4c4e2")},
-		{90, 3, 50, 9, 16, hexRGB("#0a0f1e"), hexRGB("#c8d4ec")},
+		{0, 1, 44, 22, 30, ink("#1a2442"), ink("#9aaed2")},
+		{40, 2, 47, 16, 22, ink("#121a32"), ink("#b4c4e2")},
+		{90, 3, 50, 9, 16, ink("#0a0f1e"), ink("#c8d4ec")},
 	}
 	for _, rg := range ranges {
 		ridge := func(x float64) float64 { return rg.base - rg.amp*peaks(x+rg.off, rg.s, rg.l) }
@@ -835,7 +839,7 @@ func drawAurora(g *grid, t float64, _ animPalette) {
 			}
 		}
 	}
-	water, glint := hexRGB("#0a1426"), hexRGB("#9fb4d8")
+	water, glint := ink("#0a1426"), ink("#9fb4d8")
 	for y := max(lake, g.y0); y < g.y1; y++ {
 		for x := g.x0; x < g.x1; x++ {
 			c := mixRGB(g.get(x+math.Round(math.Sin(y*0.9+t*0.6)*0.6), lake-1-(y-lake)*1.8), water, 0.5+(y-lake)*0.02)

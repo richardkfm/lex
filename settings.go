@@ -79,6 +79,9 @@ type settings struct {
 	// slides tabs in and out (motion.go). It is off unless asked for, and
 	// nothing moves while the system asks for less motion.
 	Animate bool `json:"animate,omitempty"`
+	// NaturalScenes keeps animation panes' places in their own colors,
+	// rather than in the theme's (animcolors.go).
+	NaturalScenes bool `json:"naturalScenes,omitempty"`
 
 	// OhMyPosh styles the prompt of new panes' shells with Oh My Posh, in
 	// Lex's theme, after the shells' own configuration (prompt.go).

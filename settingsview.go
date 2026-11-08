@@ -249,6 +249,9 @@ func (a *App) motionSettings(c *ui.Context, k *colors) {
 	if toggleRow(c, k, "Animate panes and tabs", "Panes glide into place as they split, close and zoom, and tabs slide in and out", prefs.Animate) {
 		a.changeLook(func(s *settings) { s.Animate = !s.Animate })
 	}
+	if toggleRow(c, k, "Scenes in theme colors", "Animation panes paint their places in the colors of the theme. Off, each keeps its own.", !prefs.NaturalScenes) {
+		a.changeLook(func(s *settings) { s.NaturalScenes = !s.NaturalScenes })
+	}
 	if prefs.Animate && c.Preferences().ReduceMotion {
 		ui.Text(c, "The system asks for less motion, so Lex keeps still: what comes and goes fades.").
 			FontSize(11.5).TextColor(k.textFaint)

@@ -56,15 +56,17 @@ var animEpoch = time.Now()
 
 // animPalette are the colors of the window's theme an animation may paint
 // with: its window's and panes' faces, its text, its accent and second
-// color, and its terminals' sixteen.
+// color, and its terminals' sixteen; and whether the places take them
+// (animcolors.go).
 type animPalette struct {
+	id                             string
 	bg, card, text, accent, second rgb
 	ansi                           [16]rgb
-	dark                           bool
+	dark, themed                   bool
 }
 
 func paletteOf(t *theme) animPalette {
-	p := animPalette{bg: hexRGB(t.bg), card: hexRGB(t.card), text: hexRGB(t.text), accent: hexRGB(t.accent),
+	p := animPalette{id: t.id, bg: hexRGB(t.bg), card: hexRGB(t.card), text: hexRGB(t.text), accent: hexRGB(t.accent),
 		second: hexRGB(t.second), dark: t.dark}
 	for i, c := range t.pal {
 		p.ansi[i] = hexRGB(c)
@@ -380,6 +382,7 @@ func clamp(v, lo, hi float64) float64 { return min(max(v, lo), hi) }
 type animPlayer struct {
 	id         string
 	theme      string
+	themed     bool
 	cols, rows int
 	step       int64
 	grids      [2]*grid
@@ -388,21 +391,23 @@ type animPlayer struct {
 }
 
 // frame returns the grid of animation an at t, cols×rows cells, in
-// theme th: painted again only when its step, its size or the theme
-// changed.
-func (pl *animPlayer) frame(an *animation, cols, rows int, t float64, th *theme) *grid {
+// theme th, its places in the theme's colors if themed: painted again
+// only when its step, its size or its colors changed.
+func (pl *animPlayer) frame(an *animation, cols, rows int, t float64, th *theme, themed bool) *grid {
 	step := int64(math.Floor(t * an.fps))
-	if pl.bmp != nil && pl.id == an.id && pl.theme == th.id && pl.cols == cols && pl.rows == rows && pl.step == step {
+	if pl.bmp != nil && pl.id == an.id && pl.theme == th.id && pl.themed == themed && pl.cols == cols && pl.rows == rows && pl.step == step {
 		return pl.grids[pl.cur]
 	}
 	if pl.cols != cols || pl.rows != rows || pl.grids[0] == nil {
 		pl.grids = [2]*grid{newGrid(cols, rows), newGrid(cols, rows)}
 		pl.bmp = nil
 	}
-	pl.id, pl.theme, pl.cols, pl.rows, pl.step = an.id, th.id, cols, rows, step
+	pl.id, pl.theme, pl.themed, pl.cols, pl.rows, pl.step = an.id, th.id, themed, cols, rows, step
 	pl.cur ^= 1
 	g := pl.grids[pl.cur]
-	g.paint(an, float64(step)/an.fps, paletteOf(th))
+	pal := paletteOf(th)
+	pal.themed = themed
+	g.paint(an, float64(step)/an.fps, pal)
 	if pl.bmp == nil {
 		pl.bmp = ui.NewBitmap(g.img).Pixelated()
 	} else {
@@ -438,7 +443,7 @@ func (a *App) drawAnimation(p *ui.Painter, r ui.Rect, pn *Pane, th *theme) {
 	if pn.player == nil {
 		pn.player = &animPlayer{}
 	}
-	g := pn.player.frame(an, cols, rows, t, th)
+	g := pn.player.frame(an, cols, rows, t, th, !prefs.NaturalScenes)
 	p.Image(pn.player.bmp, r, ui.FillBox)
 	sw, sh := r.W/float32(cols), r.H/float32(rows)
 	for _, gl := range g.glyphs {
