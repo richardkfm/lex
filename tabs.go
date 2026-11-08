@@ -5,7 +5,6 @@ import (
 	"runtime"
 	"slices"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
@@ -83,7 +82,7 @@ func (a *App) tabItem(c *ui.Context, k *colors, i int, t *Tab, width float32) {
 	} else if e.Hovered() {
 		e.Background(k.hover)
 	}
-	e.Transition(ui.ElementTransition{Colors: true, Position: true, Duration: 160 * time.Millisecond})
+	e.Transition(tabItemMotion())
 	e.Drag(t)
 	if dragged, ok := ui.Drop[*Tab](e); ok && dragged != t {
 		a.moveTab(dragged, i)
@@ -255,6 +254,9 @@ func (a *App) tiles(c *ui.Context, k *colors, t *Tab) {
 }
 
 func paneProgram(p *Pane) program {
+	if p.anim != "" {
+		return animProgram(animationOf(p.anim))
+	}
 	if p.info.Idle || p.info.Program == "" {
 		return programOf(p.info.Shell)
 	}

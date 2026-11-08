@@ -1,0 +1,15 @@
+# Made by Lex, which starts bash with this file in place of ~/.bashrc to
+# style the prompt with Oh My Posh after your own configuration. It loads
+# the files a login shell reads, as terminal apps start bash, and changes
+# none of them. Lex writes it anew as it starts a shell.
+[ -r /etc/profile ] && . /etc/profile
+if [ -r ~/.bash_profile ]; then
+  . ~/.bash_profile
+elif [ -r ~/.bash_login ]; then
+  . ~/.bash_login
+elif [ -r ~/.profile ]; then
+  . ~/.profile
+fi
+if command -v oh-my-posh >/dev/null 2>&1; then
+  eval "$(oh-my-posh init bash --config "$LEX_OMP_CONFIG")"
+fi

@@ -87,7 +87,8 @@ func newSession(id string, o CreateOptions) (*session, error) {
 	if dir == "" {
 		dir, _ = os.UserHomeDir()
 	}
-	env := sessionEnv(id, o.Env)
+	argv, promptEnv := withPrompt(o.Prompt, o.Command, name, argv)
+	env := sessionEnv(id, append(promptEnv, o.Env...))
 	p, err := startPTY(path, argv, dir, env, cols, rows)
 	if err != nil {
 		return nil, err
@@ -138,13 +139,20 @@ func newSession(id string, o CreateOptions) (*session, error) {
 
 // sessionEnv returns the environment of a session's shell: the server's,
 // without what other terminals and an AppImage set, and what terminal
-// apps set.
+// apps set, and extra, in place of the server's variables of its names.
 func sessionEnv(id string, extra []string) []string {
 	var env []string
 	hasLang := false
+	own := map[string]bool{}
+	for _, kv := range extra {
+		k, _, _ := strings.Cut(kv, "=")
+		own[k] = true
+	}
 	for _, kv := range os.Environ() {
 		k, _, _ := strings.Cut(kv, "=")
 		switch {
+		case own[k]:
+			continue
 		case k == "TERM", k == "COLORTERM", k == "TERM_PROGRAM", k == "TERM_PROGRAM_VERSION",
 			k == "TERM_SESSION_ID", k == "TMUX", k == "TMUX_PANE", k == "STY", k == "WINDOWID",
 			k == "COLUMNS", k == "LINES", k == "SHLVL", k == "OLDPWD", k == "PWD", k == "_",

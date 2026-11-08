@@ -166,7 +166,7 @@ func TestFontPicker(t *testing.T) {
 		t.Error("no proportional font after asking for them")
 	}
 	click("JetBrains Mono")
-	if prefs.Font != "" || termFont.Family != "JetBrains Mono, monospace" {
+	if prefs.Font != "" || termFont.Family != "JetBrains Mono, Symbols Nerd Font Mono, monospace" {
 		t.Errorf("the built-in font is kept as %q, the terminals' %q", prefs.Font, termFont.Family)
 	}
 	click("System") // the button of the window's font

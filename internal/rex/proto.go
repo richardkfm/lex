@@ -49,6 +49,9 @@ type CreateOptions struct {
 	Env     []string `json:"env,omitempty"`
 	Cols    int      `json:"cols,omitempty"`
 	Rows    int      `json:"rows,omitempty"`
+	// Prompt styles the prompt of the user's shell after its own
+	// configuration: PromptOhMyPosh, or "" for the shell's own (prompt.go).
+	Prompt string `json:"prompt,omitempty"`
 }
 
 // SessionInfo describes a session and what runs in it now.

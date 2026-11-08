@@ -4,7 +4,7 @@ A terminal of tabs, split panes and sessions that outlive the app, after
 [Superlogical's Rex](https://www.superlogical.com/updates/public-testing-beginning)
 and forked from [GoRex](https://github.com/egoist/gorex) by EGOIST. Written in
 Go with [MyGo](https://mygo.egoist.dev)'s native UI and its terminal plugin
-(Ghostty's libghostty-vt). No webview, no cgo: one ~15 MB app, for Windows,
+(Ghostty's libghostty-vt). No webview, no cgo: one ~18 MB app, for Windows,
 Linux and macOS.
 
 ![Lex](docs/screenshot.png)
@@ -56,6 +56,36 @@ Linux and macOS.
   file dialog, which you fill, fit, tile or center. Set the panes'
   opacity, and how much the background is dimmed (faded in a light
   theme) and blurred. Lex keeps your image's path.
+- **Motion, on asking**: off until you turn on *Animate panes and tabs*
+  in the Look section of the settings. Panes then glide into place as
+  they split, close and zoom, a new pane uncovered by the one making room
+  for it, and tabs slide in the way of the tab bar; a pane's terminal
+  keeps its size on the way and takes the new one once there, so that its
+  program redraws once. Nothing moves while the system asks for less
+  motion.
+- **Animation panes**: the palette opens a pane beside the focused one
+  that plays a scene in place of a terminal (*Animation: Dune Sea*,
+  *Neon Grid*, *Garden City*, *Helix*, *Aurora*), which Lex draws on the
+  terminal's grid, eight pixels to a cell, as braille's dots, and
+  characters for the details, as terminal art does. A larger pane shows
+  more of the place: more sky, more dunes, more towers. The places take
+  the colors of the theme: sky and shade its second color, their subject
+  its accent, lamps its yellow, each keeping its own light, so they stay
+  dark in a light theme too (Settings ▸ Look ▸ Motion ▸ *Scenes in theme
+  colors*, on unless turned off; Helix is in the theme's colors either
+  way). The arrows in its
+  header switch scenes, it closes and zooms as any pane, and the layout
+  keeps it. It plays while it shows, and holds still while the system
+  asks for less motion.
+- **An Oh My Posh prompt**, on asking (Text section): new panes'
+  shells load your own configuration, and then
+  [Oh My Posh](https://ohmyposh.dev), which you install, in Lex's theme:
+  two lines, the folder in a pill of the accent, the git branch and its
+  state, a long command's time, the user and the clock, past prompts
+  shrunk to the folder. Its colors are the terminal's sixteen, so it
+  takes the theme of the window and changes with it. Bash, zsh, fish and
+  PowerShell; Lex starts them with files of its own (`prompt/` in the
+  data directory) that load yours, and changes none of yours.
 - **Pane tints**: a pane takes a color of the theme while what runs in
   it is worth keeping in mind: a remote session (ssh, mosh), root (sudo,
   su, doas), a container (docker or podman exec, kubectl exec), or, on
@@ -65,11 +95,15 @@ Linux and macOS.
   settings turns tints off, all at once or by kind.
 - **Fonts**: JetBrains Mono embedded for the terminals, or any of the
   system's monospaced fonts (or all of them, on asking), searchable; the
-  rest of the window in the system's font or another.
+  rest of the window in the system's font or another. The icons of
+  prompts, file listings and editors' status lines come from
+  [Nerd Fonts](https://www.nerdfonts.com)' symbols, embedded too, where
+  your font has none of its own.
 - **Settings** behind the gear of the title bar (Ctrl+Shift+, or
-  View ▸ Settings…), in four sections: Look (theme and background),
-  Panes (pane tints), Text (fonts, text size (Ctrl+= Ctrl+- Ctrl+0),
-  line spacing, the cursor's shape and blinking, ligatures), and General
+  View ▸ Settings…), in four sections: Look (theme, background and
+  motion), Panes (pane tints), Text (fonts, text size (Ctrl+= Ctrl+-
+  Ctrl+0), line spacing, the cursor's shape and blinking, ligatures, the
+  Oh My Posh prompt), and General
   (the notification of a long command finishing in the background). They show in every
   pane at once and are kept in `settings.json`, in the data directory.
 
@@ -195,7 +229,8 @@ installer needs [NSIS](https://nsis.sourceforge.io) (`apt install nsis`,
 CLI together.
 
 The app keeps its state in its data directory: the server's socket and
-log, `layout.json` and `settings.json`. That is `~/Library/Application
+log, `layout.json` and `settings.json`, and with the Oh My Posh prompt on,
+`prompt/`, the theme and the files that start the shells with it. That is `~/Library/Application
 Support/Lex` on macOS, `%AppData%\Lex` on Windows and `~/.config/Lex` on
 Linux, and `Lex Dev` for `mygo dev`'s, so that developing never touches the
 sessions of the app you use. `LEX_DIR` names another directory, and so does
@@ -254,9 +289,11 @@ of the run ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 | `main.go` | the app, its window, and `-server` |
 | `state.go` | tabs, the tree of splits, panes, saving and restoring the layout |
 | `view.go`, `tabs.go`, `host.go`, `commands.go`, `settingsview.go` | the interface: title bar, tabs, panes, host popover, menus, palette and settings panel |
+| `motion.go` | how panes and tabs move, when the settings animate them |
+| `animations.go`, `animscenes.go`, `animcolors.go` | animation panes: the grid they are drawn on, the scenes, and their theme colors |
 | `programs.go` | how programs show: names and glyphs |
 | `style.go`, `settings.go` | colors, fonts, terminal themes; the settings and how they apply |
-| `internal/rex` | the session server and its client: PTYs, foreground processes, headless screens, the socket protocol |
+| `internal/rex` | the session server and its client: PTYs, foreground processes, headless screens, the socket protocol, and the shells' Oh My Posh prompt (`prompt.go`, `prompt/`) |
 
 Not replicated: Rex's connections to servers on other machines. Lex's
 server listens on a local socket only.

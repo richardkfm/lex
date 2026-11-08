@@ -45,7 +45,8 @@ type Node struct {
 	A, B     *Node
 }
 
-// Pane is a terminal attached to a session of the server.
+// Pane is a terminal attached to a session of the server, or a pane
+// that plays an animation (animations.go).
 type Pane struct {
 	ID     int
 	SID    string
@@ -53,6 +54,10 @@ type Pane struct {
 	Node   *Node
 	term   *terminal.Terminal
 	stream *rex.Stream
+	// anim is the animation the pane plays, for one without a session,
+	// and player plays it.
+	anim   string
+	player *animPlayer
 
 	// info is what the server last said of the session.
 	info rex.SessionInfo
@@ -63,9 +68,16 @@ type Pane struct {
 	// attention marks a pane that rang the bell or whose program finished
 	// while it was out of sight; seen clears it.
 	attention bool
-	// bounds is where the pane's card was in the last frame.
+	// bounds is where the pane's card was in the last frame, and inner how
+	// large its content was the last time it was not moving, which it
+	// keeps while it moves.
 	bounds ui.Rect
-	closed bool
+	inner  ui.Rect
+	// built is the frame that last built the pane, and entered when it
+	// came into the tab's box, as a split's new side or after a zoom.
+	built   int
+	entered time.Time
+	closed  bool
 	// restored tells that the session was made anew for a pane of a
 	// saved layout whose session was gone.
 	restored bool
@@ -135,6 +147,19 @@ type App struct {
 	// thumbs are the little pictures of the backgrounds the settings
 	// offer, by pattern id, or "file:" and a picture's path.
 	thumbs map[string]*ui.Bitmap
+	// shownTab is the tab the last frame showed, at shownAt among the
+	// tabs, and tabDir the way the tab shown now came from: 1 from the
+	// right, -1 from the left (motion.go).
+	shownTab *Tab
+	shownAt  int
+	tabDir   float32
+	// frame counts the frames built, and dragged is the last in which a
+	// divider was dragged.
+	frame, dragged int
+
+	// ompPath is where the settings found oh-my-posh, once ompAsked.
+	ompPath  string
+	ompAsked bool
 }
 
 func (a *App) post(fn func()) {
@@ -203,7 +228,7 @@ func (a *App) newPane(dir string, cols, rows int) *Pane {
 	if cols <= 0 {
 		cols, rows = 80, 24
 	}
-	info, err := a.client.Create(rex.CreateOptions{Dir: dir, Cols: cols, Rows: rows})
+	info, err := a.client.Create(rex.CreateOptions{Dir: dir, Cols: cols, Rows: rows, Prompt: prefs.prompt()})
 	if err != nil {
 		log.Printf("creating a session: %v", err)
 		a.err = err.Error()
@@ -322,6 +347,12 @@ func (a *App) currentDir() string {
 
 // split splits the focused pane, the new pane right of it or below it.
 func (a *App) split(vertical bool) {
+	a.splitWith(vertical, func(cols, rows int) *Pane { return a.newPane(a.currentDir(), cols, rows) })
+}
+
+// splitWith splits the focused pane, the pane newPane makes, of about
+// cols×rows cells, right of it or below it.
+func (a *App) splitWith(vertical bool, newPane func(cols, rows int) *Pane) {
 	t := a.tab()
 	if t == nil || t.Focus == nil {
 		return
@@ -338,7 +369,7 @@ func (a *App) split(vertical bool) {
 			cols = max(cols/2, 10)
 		}
 	}
-	p := a.newPane(a.currentDir(), cols, rows)
+	p := newPane(cols, rows)
 	p.Tab = t
 	left := &Node{ID: a.id(), Pane: old, Parent: n}
 	right := &Node{ID: a.id(), Pane: p, Parent: n}
@@ -577,6 +608,9 @@ func (a *App) toggleZoom() {
 // label returns how a pane names itself: its program, or the title the
 // program set, and the directory it works in.
 func (p *Pane) label() (name, detail string) {
+	if p.anim != "" {
+		return animationOf(p.anim).name, "Animation"
+	}
 	in := p.info
 	prog := programOf(in.Program)
 	dir := shortDir(in.Dir)
@@ -691,6 +725,7 @@ type savedTab struct {
 
 type savedNode struct {
 	SID      string     `json:"sid,omitempty"`
+	Anim     string     `json:"anim,omitempty"`
 	Dir      string     `json:"dir,omitempty"`
 	Cols     int        `json:"cols,omitempty"`
 	Rows     int        `json:"rows,omitempty"`
@@ -705,6 +740,9 @@ func (a *App) snapshot() savedLayout {
 	var save func(n *Node) *savedNode
 	save = func(n *Node) *savedNode {
 		if p := n.Pane; p != nil {
+			if p.anim != "" {
+				return &savedNode{Anim: p.anim}
+			}
 			s := &savedNode{SID: p.SID, Dir: p.info.Dir}
 			if s.Dir == "" {
 				s.Dir = p.startDir
@@ -768,7 +806,9 @@ func (a *App) restore() bool {
 		n := &Node{ID: a.id(), Parent: parent}
 		if s.A == nil || s.B == nil {
 			var p *Pane
-			if in, ok := live[s.SID]; ok && !used[s.SID] {
+			if s.Anim != "" {
+				p = a.newAnimPane(s.Anim)
+			} else if in, ok := live[s.SID]; ok && !used[s.SID] {
 				used[s.SID] = true
 				p = &Pane{ID: a.id(), SID: s.SID, info: in, startDir: s.Dir}
 				a.attach(p, in.Cols, in.Rows)
