@@ -4,8 +4,8 @@ A terminal of tabs, split panes and sessions that outlive the app, after
 [Superlogical's Rex](https://www.superlogical.com/updates/public-testing-beginning)
 and forked from [GoRex](https://github.com/egoist/gorex) by EGOIST. Written in
 Go with [MyGo](https://mygo.egoist.dev)'s native UI and its terminal plugin
-(Ghostty's libghostty-vt). No webview, no cgo: one ~18 MB app, for Windows,
-Linux and macOS.
+(Ghostty's libghostty-vt). No webview, no cgo: one ~18 MB app, for Windows and
+Linux.
 
 ![Lex](docs/screenshot.png)
 
