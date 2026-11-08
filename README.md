@@ -214,6 +214,7 @@ go test ./...        # the server, and the view without a window
 go tool mygo build   # build/<os>-<arch>/: the app and its packages
 go run ./tools/mkicon  # redraw resources/icon.png
 sh tools/appimage.sh   # pack the Linux build as an AppImage
+sh tools/natives.sh linux-amd64 windows-amd64  # fetch the terminal library ahead, as CI does
 ```
 
 `go tool mygo build -platform windows/amd64,linux/amd64` builds the Windows

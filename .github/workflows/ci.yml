@@ -30,6 +30,19 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      # The terminal's native library, which the tests and the build
+      # download from mygo's GitHub releases with seconds of retries, and
+      # those answer 504 for minutes at times: kept in the Actions cache,
+      # and fetched ahead with minutes of retries on a miss.
+      - uses: actions/cache@v6
+        if: runner.os == 'Linux'
+        with:
+          path: ~/.cache/mygo/natives
+          key: mygo-natives-${{ hashFiles('go.sum') }}
+          restore-keys: mygo-natives-
+      - name: Download the native libraries
+        if: runner.os == 'Linux'
+        run: sh tools/natives.sh linux-amd64 windows-amd64
       - run: go vet ./...
       - run: go test ./...
 
@@ -42,6 +55,14 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      # The native libraries, as for the tests.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/mygo/natives
+          key: mygo-natives-${{ hashFiles('go.sum') }}
+          restore-keys: mygo-natives-
+      - name: Download the native libraries
+        run: sh tools/natives.sh linux-amd64 windows-amd64
       - name: Install NSIS, for the Windows installer, and zsync, for the AppImage's updates
         run: sudo apt-get update && sudo apt-get install -y nsis zsync
       # A release is the tag's version, whatever mygo.json says, so that a
