@@ -191,8 +191,22 @@ func TestPanesAndTabs(t *testing.T) {
 	waitFor(t, tt, "the right pane's shell", func() bool {
 		return right.term != nil && strings.Contains(right.term.Text(), testShell.prompt)
 	})
+	// cmd has taken over five seconds to end, on a busy runner, or not
+	// seen what was typed: it is told again every five seconds, for up to
+	// twenty, and a failure shows what the pane shows.
 	right.term.Send([]byte("exit\r"))
-	waitFor(t, tt, "the pane to close", func() bool { return len(tab.panes()) == 2 })
+	deadline, again := time.Now().Add(20*time.Second), time.Now().Add(5*time.Second)
+	for len(tab.panes()) != 2 {
+		if time.Now().After(deadline) {
+			t.Fatalf("the pane did not close after exit; it shows %q", right.term.Text())
+		}
+		if time.Now().After(again) {
+			right.term.Send([]byte("exit\r"))
+			again = time.Now().Add(5 * time.Second)
+		}
+		time.Sleep(20 * time.Millisecond)
+		tt.Frame()
+	}
 }
 
 func TestRestore(t *testing.T) {

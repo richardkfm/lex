@@ -63,20 +63,22 @@ Linux and macOS.
   keeps its size on the way and takes the new one once there, so that its
   program redraws once. Nothing moves while the system asks for less
   motion.
-- **Animation panes**: the palette opens a pane beside the focused one
-  that plays a scene in place of a terminal (*Animation: Dune Sea*,
-  *Neon Grid*, *Garden City*, *Helix*, *Aurora*), which Lex draws on the
-  terminal's grid, eight pixels to a cell, as braille's dots, and
-  characters for the details, as terminal art does. A larger pane shows
-  more of the place: more sky, more dunes, more towers. The places take
-  the colors of the theme: sky and shade its second color, their subject
-  its accent, lamps its yellow, each keeping its own light, so they stay
-  dark in a light theme too (Settings ▸ Look ▸ Motion ▸ *Scenes in theme
-  colors*, on unless turned off; Helix is in the theme's colors either
-  way). The arrows in its
-  header switch scenes, it closes and zooms as any pane, and the layout
-  keeps it. It plays while it shows, and holds still while the system
-  asks for less motion.
+- **Animation panes**: a pane that plays a scene in place of a terminal.
+  To open one, open the command palette (Ctrl+Shift+P, or the ⚡ button),
+  type the scene's name, as `helix`, and press Enter: *Animation: Dune
+  Sea*, *Neon Grid*, *Garden City*, *Helix* or *Aurora* opens beside the
+  focused pane (on macOS, Shell ▸ Split with Animation too). The arrows
+  in its header switch scenes, it closes and zooms as any pane, and the
+  layout keeps it. Lex draws the scenes on the terminal's grid, eight
+  pixels to a cell, as braille's dots, and characters for the details,
+  as terminal art does; a larger pane shows more of the place: more sky,
+  more dunes, more towers. The places take the colors of the theme: sky
+  and shade its second color, their subject its accent, lamps its
+  yellow, each keeping its own light, so they stay dark in a light theme
+  too (Settings ▸ Look ▸ Motion ▸ *Scenes in theme colors*, on unless
+  turned off; Helix is in the theme's colors either way). A scene plays
+  while it shows, and holds still while the system asks for less
+  motion.
 - **An Oh My Posh prompt**, on asking (Text section): new panes'
   shells load your own configuration, and then
   [Oh My Posh](https://ohmyposh.dev), which you install, in Lex's theme:
