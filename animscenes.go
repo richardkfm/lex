@@ -286,7 +286,7 @@ func drawNeonGrid(g *grid, t float64, pal animPalette) {
 	}
 	rain := ink("#8fa3d6")
 	for k := range int(140 * g.area()) {
-		v := 70 + 50*hash(k, 1, 36)
+		v := 28 + 20*hash(k, 1, 36) // slow enough to read as falling, not flicker
 		x := g.x0 + wrap(g.wd()*hash(k, 2, 36)-t*v*0.25, g.wd())
 		y := g.y0 + wrap(g.hd()*hash(k, 3, 36)+t*v, g.hd())
 		for j := range 3 {
