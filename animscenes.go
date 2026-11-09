@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"math"
+	"regexp"
+	"strings"
 
 	"github.com/egoist/mygo/ui"
 )
@@ -10,7 +12,8 @@ import (
 // The scenes an animation pane plays (animations.go): abstract places,
 // lit, and alive in small ways: sand drifts, traffic streams, water
 // falls, a helix turns, lights cross the sky, a scope traces its
-// figures, packets run through a network. Each is composed on the
+// figures, packets run through a network, a build runs through the
+// night. Each is composed on the
 // design's pixels and goes on past them in a larger pane: more sky, more
 // dunes, more skyline, more towers. Each is painted from the time and the
 // pane's size alone.
@@ -1141,5 +1144,254 @@ func drawTraceroute(g *grid, t float64, pal animPalette) {
 		s = s[:min(len(s), int(right-left)-4)]
 		g.text(left+1, bottom-1, "›", packet)
 		g.text(left+3, bottom-1, string(s), dim)
+	}
+}
+
+// Night Build: a build log running through the night with nobody at the
+// keyboard: patch after patch, its file, its diff typed out over green
+// and red bands, its test run with a spinner beside it, the result and
+// the commit, and straight on to the next, round and round, under a
+// status bar counting the commits. A larger pane shows more of the log.
+var nightBuildAnim = &animation{id: "night-build", name: "Night Build", fps: 20, tile: ui.Hex("#e0a458"), draw: drawNightBuild}
+
+// buildPatch is a patch of the night build: its file, its diff, the test
+// it runs, what the test says, and its commit.
+type buildPatch struct {
+	file, test, out, hash, msg string
+	diff                       []buildDiff
+}
+
+// buildDiff is a line of a patch's diff: its number, + or -, and its code.
+type buildDiff struct {
+	n    int
+	sign byte
+	code string
+}
+
+var buildPatches = []buildPatch{
+	{file: "build/pipeline.go", test: "go test ./build", out: "build   0.42s   12 passed", hash: "a41f09", msg: "remove the build's nap",
+		diff: []buildDiff{{41, '-', "time.Sleep(10 * time.Second) // let it think"}, {41, '+', "// it has thought enough"},
+			{58, '+', `cache.Warm(ctx, "coffee")`}}},
+	{file: "clock/clock_test.go", test: "go test -count 100 ./clock", out: "clock   100/100 passed", hash: "7c2e5b", msg: "let the test run on fridays",
+		diff: []buildDiff{{17, '-', "if time.Now().Weekday() == time.Friday {"}, {18, '-', `  t.Skip("too tired")`},
+			{17, '+', "// fridays are fine now"}}},
+	{file: "geom/reticulate.go", test: "go test ./geom", out: "geom   0.07s   TestReticulate", hash: "e93d40", msg: "reticulate the splines, all 7",
+		diff: []buildDiff{{1, '+', "func Reticulate(s []Spline) []Spline {"}, {2, '+', "  for i := range s {"},
+			{3, '+', "    s[i].Knots = s[i].Knots.Untangle()"}, {4, '+', "  }"},
+			{5, '+', "  return s // fully reticulated"}, {6, '+', "}"}}},
+	{file: "office/coffee.go", test: "go test ./office", out: "office   0.01s   TestCoffeeIsHot", hash: "0b81fa", msg: "stop serving decaf",
+		diff: []buildDiff{{12, '-', "const Strength = 0.4"}, {12, '+', "const Strength = 0.9 // it was decaf"},
+			{31, '+', "if cup.Temp < 60 { cup.Reheat() }"}}},
+}
+
+// buildEntry is a line of the night build's log: what it is, when it
+// shows, and for one typed, when it starts to be and how fast.
+type buildEntry struct {
+	kind    string // file, code, test, out, commit or blank
+	at, dur float64
+	typed   bool
+	typeAt  float64
+	diff    buildDiff
+	patch   int
+}
+
+// buildLog lays the patches out in time, and returns the log and how long
+// it runs before it starts again.
+func buildLog() ([]buildEntry, float64) {
+	const testFor = 1.4
+	var log []buildEntry
+	t := 0.0
+	for pi, p := range buildPatches {
+		log = append(log, buildEntry{kind: "file", at: t, patch: pi})
+		t += 0.5
+		for _, d := range p.diff {
+			e := buildEntry{kind: "code", at: t, diff: d, patch: pi}
+			if d.sign == '+' {
+				e.typed, e.typeAt = true, t
+				t += float64(len(d.code))/buildCPS + 0.15
+			} else {
+				t += 0.25
+			}
+			log = append(log, e)
+		}
+		t += 0.3
+		log = append(log, buildEntry{kind: "test", at: t, dur: testFor, patch: pi})
+		t += testFor
+		log = append(log, buildEntry{kind: "out", at: t, patch: pi})
+		t += 0.5
+		log = append(log, buildEntry{kind: "commit", at: t, patch: pi})
+		t += 0.9
+		log = append(log, buildEntry{kind: "blank", at: t, patch: pi})
+		t += 0.3
+	}
+	return log, t
+}
+
+var buildEntries, buildLength = buildLog()
+
+// buildCPS is how many characters a second the diffs are typed at.
+const buildCPS = 45.0
+
+// buildSyntax finds what buildCode colors: comments, strings, keywords
+// and numbers.
+var buildSyntax = regexp.MustCompile(`(//.*$)|("[^"]*")|\b(func|for|range|return|if|const)\b|\b(\d+(?:\.\d+)?)\b`)
+
+// buildSpan is a run of text of the log in a color.
+type buildSpan struct {
+	s string
+	c rgb
+}
+
+// buildCode colors a line of Go.
+func buildCode(s string, text, dim, accent, str rgb) []buildSpan {
+	var out []buildSpan
+	last := 0
+	for _, m := range buildSyntax.FindAllStringSubmatchIndex(s, -1) {
+		if m[0] > last {
+			out = append(out, buildSpan{s[last:m[0]], text})
+		}
+		c := accent
+		switch {
+		case m[2] >= 0:
+			c = dim
+		case m[4] >= 0 || m[8] >= 0:
+			c = str
+		}
+		out = append(out, buildSpan{s[m[0]:m[1]], c})
+		last = m[1]
+	}
+	if last < len(s) {
+		out = append(out, buildSpan{s[last:], text})
+	}
+	return out
+}
+
+// cutSpans returns the first n characters of spans.
+func cutSpans(spans []buildSpan, n int) []buildSpan {
+	var out []buildSpan
+	for _, sp := range spans {
+		if n <= 0 {
+			break
+		}
+		r := []rune(sp.s)
+		out = append(out, buildSpan{string(r[:min(n, len(r))]), sp.c})
+		n -= len(r)
+	}
+	return out
+}
+
+func drawNightBuild(g *grid, t float64, pal animPalette) {
+	ink := pal.inks(nightBuildRoles)
+	var (
+		night, bar, text, dim = ink("#07080d"), ink("#12141e"), ink("#cdd3e6"), ink("#5d6684")
+		accent, path, str     = ink("#4fd8ef"), ink("#b18cff"), ink("#ffd75e")
+		add, addBand          = ink("#7ee08a"), ink("#0e2616")
+		del, delBand          = ink("#ff7b86"), ink("#2b0f14")
+	)
+	g.fill(night)
+	left, right, top, bottom := g.x0/2, g.x1/2, g.y0/4, g.y1/4
+	status := g.rows >= 3
+	last := bottom - 1
+	if status {
+		last = bottom - 2
+	}
+	col0 := left + 1
+	now, round := wrap(t, buildLength), math.Floor(t/buildLength)
+
+	// The log so far, the last round's and this round's, as many lines as
+	// show, at the time each shows at: done, for the last round's.
+	type shown struct {
+		e  buildEntry
+		at float64
+	}
+	var log []shown
+	for _, e := range buildEntries {
+		log = append(log, shown{e, math.Inf(1)})
+	}
+	for _, e := range buildEntries {
+		if e.at <= now {
+			log = append(log, shown{e, now})
+		}
+	}
+	log = log[max(0, len(log)-int(last-top+1)):]
+	cursor, typing := [2]float64{}, false
+	band := func(row float64, c rgb) {
+		for x := g.x0; x < g.x1; x++ {
+			for y := row * 4; y < row*4+4; y++ {
+				g.set(x, y, c)
+			}
+		}
+	}
+	for i, l := range log {
+		row := last - float64(len(log)-1-i)
+		p := buildPatches[l.e.patch]
+		var spans []buildSpan
+		switch l.e.kind {
+		case "file":
+			rule := strings.Repeat("─", max(0, int(math.Floor(right-col0))-len(p.file)-4))
+			spans = []buildSpan{{"── ", dim}, {p.file, path}, {" " + rule, dim}}
+		case "code":
+			d := l.e.diff
+			sign, bg := add, addBand
+			if d.sign == '-' {
+				sign, bg = del, delBand
+			}
+			band(row, bg)
+			code := buildCode(d.code, text, dim, accent, str)
+			if l.e.typed && l.at < l.e.typeAt+float64(len(d.code))/buildCPS {
+				n := max(0, int(math.Floor((l.at-l.e.typeAt)*buildCPS)))
+				code = cutSpans(code, n)
+				cursor, typing = [2]float64{col0 + 9 + float64(n), row}, true
+			}
+			spans = append([]buildSpan{{fmt.Sprintf("  %3d ", d.n), dim}, {string(d.sign) + " ", sign}}, code...)
+		case "test":
+			spans = []buildSpan{{"  $ ", accent}, {p.test, text}}
+			if l.at < l.e.at+l.e.dur {
+				// A spinner after the command while the test runs.
+				head := math.Mod(math.Floor(l.at*12), 8)
+				cx, cy := (col0+5+float64(len(p.test)))*2, row*4+2
+				for k := range 8 {
+					fk := float64(k)
+					if age := wrap(head-fk, 8); age < 4 {
+						g.light(cx+math.Round(1.6*math.Cos(fk*math.Pi/4))-0.5, cy+math.Round(1.6*math.Sin(fk*math.Pi/4))-0.5, accent, 1-age/4)
+					}
+				}
+			}
+		case "out":
+			spans = []buildSpan{{"  ok  ", add}, {p.out, dim}}
+		case "commit":
+			spans = []buildSpan{{"  ✓ ", add}, {p.hash + "  ", dim}, {p.msg, text}}
+		}
+		col := col0
+		for _, sp := range spans {
+			col = g.text(col, row, sp.s, sp.c)
+		}
+	}
+	if typing {
+		for x := range 2 {
+			for y := range 4 {
+				g.mix(cursor[0]*2+float64(x), cursor[1]*4+float64(y), text, 0.8)
+			}
+		}
+	}
+	if !status {
+		return
+	}
+	// The status bar: the build's tally, ever counting.
+	sr := bottom - 1
+	band(sr, bar)
+	patch, commits := 0, 1204+int(round)*len(buildPatches) // it has been at it a while
+	for _, e := range buildEntries {
+		if e.at <= now {
+			patch = e.patch
+			if e.kind == "commit" {
+				commits++
+			}
+		}
+	}
+	col := g.text(col0, sr, "night build", accent)
+	col = g.text(col, sr, fmt.Sprintf("  ·  patch %d/%d  ·  %d commits  ·  coffee: cold", patch+1, len(buildPatches), commits), dim)
+	if right-col > 12 {
+		g.text(right-10, sr, "● running", add)
 	}
 }

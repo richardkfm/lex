@@ -67,14 +67,15 @@ Linux.
   To open one, open the command palette (Ctrl+Shift+P, or the ⚡ button),
   type the scene's name, as `helix`, and press Enter: *Animation: Dune
   Sea*, *Neon Grid*, *Garden City*, *Helix*, *Aurora*, *Oscilloscope*
-  (Lissajous figures on a scope's screen) or *Traceroute* (a network
-  being scanned, packets running along its links) opens beside the
-  focused pane (on macOS, Shell ▸ Split with Animation too). The arrows
+  (Lissajous figures on a scope's screen), *Traceroute* (a network
+  being scanned, packets running along its links) or *Night Build* (a
+  build log patching, testing and committing by itself) opens beside
+  the focused pane (on macOS, Shell ▸ Split with Animation too). The arrows
   in its header switch scenes, it closes and zooms as any pane, and the
   layout keeps it. Lex draws the scenes on the terminal's grid, eight
   pixels to a cell, as braille's dots, and characters for the details,
   as terminal art does; a larger pane shows more of the place: more sky,
-  more dunes, more towers, a larger screen, more of the network. The places take the colors of the theme: sky
+  more dunes, more towers, a larger screen, more of the network, more of the log. The places take the colors of the theme: sky
   and shade its second color, their subject its accent, lamps its
   yellow, each keeping its own light, so they stay dark in a light theme
   too (Settings ▸ Look ▸ Motion ▸ *Scenes in theme colors*, on unless

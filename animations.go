@@ -33,7 +33,7 @@ type animation struct {
 
 // animations are the animations, in the order the palette and the
 // header's arrows go through them.
-var animations = []*animation{duneSeaAnim, neonGridAnim, gardenCityAnim, helixAnim, auroraAnim, oscilloscopeAnim, tracerouteAnim}
+var animations = []*animation{duneSeaAnim, neonGridAnim, gardenCityAnim, helixAnim, auroraAnim, oscilloscopeAnim, tracerouteAnim, nightBuildAnim}
 
 // animationOf returns the animation of id, the first for one Lex does not
 // know, as of a layout of a later version.
