@@ -1,14 +1,19 @@
 package main
 
 import (
+	"fmt"
 	"math"
+	"regexp"
+	"strings"
 
 	"github.com/egoist/mygo/ui"
 )
 
 // The scenes an animation pane plays (animations.go): abstract places,
 // lit, and alive in small ways: sand drifts, traffic streams, water
-// falls, a helix turns, lights cross the sky. Each is composed on the
+// falls, a helix turns, lights cross the sky, a scope traces its
+// figures, packets run through a network, a build runs through the
+// night. Each is composed on the
 // design's pixels and goes on past them in a larger pane: more sky, more
 // dunes, more skyline, more towers. Each is painted from the time and the
 // pane's size alone.
@@ -286,7 +291,7 @@ func drawNeonGrid(g *grid, t float64, pal animPalette) {
 	}
 	rain := ink("#8fa3d6")
 	for k := range int(140 * g.area()) {
-		v := 70 + 50*hash(k, 1, 36)
+		v := 28 + 20*hash(k, 1, 36) // slow enough to read as falling, not flicker
 		x := g.x0 + wrap(g.wd()*hash(k, 2, 36)-t*v*0.25, g.wd())
 		y := g.y0 + wrap(g.hd()*hash(k, 3, 36)+t*v, g.hd())
 		for j := range 3 {
@@ -848,5 +853,545 @@ func drawAurora(g *grid, t float64, pal animPalette) {
 			}
 			g.set(x, y, c)
 		}
+	}
+}
+
+// Oscilloscope: a scope in X–Y mode tracing Lissajous figures, two sines
+// in a ratio that changes every few seconds, 1:1, 1:2, 3:2, 3:4, 5:4,
+// 2:3, as their phase drifts, the trace brightest where it slows and
+// leaving an afterglow; its graticule behind, and its channels'
+// frequencies and phase read out under it. A larger pane is a larger
+// screen, of the same ten divisions by eight.
+var oscilloscopeAnim = &animation{id: "oscilloscope", name: "Oscilloscope", fps: 24, tile: ui.Hex("#0f9f8f"), draw: drawOscilloscope}
+
+// scopeRatios are the ratios of the scope's two sines, in turn.
+var scopeRatios = [...][2]float64{{1, 1}, {1, 2}, {3, 2}, {3, 4}, {5, 4}, {2, 3}}
+
+func drawOscilloscope(g *grid, t float64, pal animPalette) {
+	ink := pal.inks(oscilloscopeRoles)
+	var (
+		screen, grat, axis = ink("#060b10"), ink("#1a2b36"), ink("#2a4252")
+		trace, label       = ink("#46f08c"), ink("#56708a")
+		value, trig        = ink("#7dffb2"), ink("#ffd75e")
+	)
+	g.fill(screen)
+	// The screen is all the pane but its last row, which reads out.
+	left, right, last := g.x0/2, g.x1/2, g.y1/4-1
+	sx0, sx1, sy0, sy1 := g.x0, g.x1, g.y0, g.y1
+	readout := g.rows >= 3
+	if readout {
+		sy1 = last * 4
+	}
+	w, h := sx1-sx0, sy1-sy0
+	for k := 0.0; k <= 10; k++ {
+		x, c := sx0+math.Round(k*(w-1)/10), grat
+		if k == 5 {
+			c = axis
+		}
+		for y := sy0 + 1; y < sy1; y += 2 {
+			g.set(x, y, c)
+		}
+	}
+	for k := 0.0; k <= 8; k++ {
+		y, c := sy0+math.Round(k*(h-1)/8), grat
+		if k == 4 {
+			c = axis
+		}
+		for x := sx0 + 1; x < sx1; x += 2 {
+			g.set(x, y, c)
+		}
+	}
+	mid, tick := sy0+math.Round((h-1)/2), max(2, math.Round(w/50))
+	for x := sx0; x < sx1; x += tick {
+		g.set(x, mid-1, axis)
+		g.set(x, mid+1, axis)
+	}
+
+	// The figure: x a sine of a, y of b, the ratio easing to the next in
+	// the last 1.6 seconds of its 7.
+	const hold = 7.0
+	n := math.Floor(t / hold)
+	r0 := scopeRatios[int(n)%len(scopeRatios)]
+	r1 := scopeRatios[int(n+1)%len(scopeRatios)]
+	m := smooth(clamp((t-n*hold-5.4)/1.6, 0, 1))
+	a, b := r0[0]+(r1[0]-r0[0])*m, r0[1]+(r1[1]-r0[1])*m
+	phi := t * 0.45
+	cx, cy, ax, ay := (sx0+sx1)/2, (sy0+sy1)/2, w*0.42, h*0.4
+	at := func(s, ph float64) (float64, float64) {
+		return cx + ax*math.Sin(a*s+ph), cy - ay*math.Sin(b*s)
+	}
+	length := 0.0
+	px, py := at(0, phi)
+	for i := 1; i <= 400; i++ {
+		x, y := at(float64(i)/400*2*math.Pi, phi)
+		length += math.Hypot(x-px, y-py)
+		px, py = x, y
+	}
+	// curve traces the figure at phase ph, gain of the trace's light to
+	// a pixel along it, density samples a pixel: more light where it
+	// slows, as the beam lingers there. The afterglow is the figure at
+	// the phases just past, fainter as they are older.
+	curve := func(ph, gain, density float64) {
+		samples := max(300, int(length*density))
+		k := gain * length / float64(samples)
+		for i := range samples {
+			x, y := at(float64(i)/float64(samples)*2*math.Pi, ph)
+			g.light(x, y, trace, k)
+			g.light(x+1, y, trace, k*0.18)
+			g.light(x-1, y, trace, k*0.18)
+			g.light(x, y+1, trace, k*0.18)
+			g.light(x, y-1, trace, k*0.18)
+		}
+	}
+	for k := 10.0; k >= 1; k-- {
+		curve(phi-k*0.035, 0.32*math.Pow(0.78, k), 3)
+	}
+	curve(phi, 1, 6)
+
+	if !readout {
+		return
+	}
+	col := left + 1
+	for _, part := range []struct {
+		s string
+		c rgb
+	}{
+		{"CH1 ", label}, {fmt.Sprintf("%.0fHz", 220*a), value},
+		{"  CH2 ", label}, {fmt.Sprintf("%.0fHz", 220*b), value},
+		{"  φ ", label}, {fmt.Sprintf("%.2fπ", wrap(phi/math.Pi, 2)), value},
+		{"  X-Y  1V/div", label},
+	} {
+		if col+float64(len([]rune(part.s))) > right {
+			break
+		}
+		col = g.text(col, last, part.s, part.c)
+	}
+	if right-left > 50 && int(math.Floor(t*2))%4 != 0 {
+		g.text(right-7, g.y0/4, "● TRIG", trig)
+	}
+}
+
+// Traceroute: a network, hosts with their addresses and links between
+// them, packets running along the links; a scan sweeping across it, each
+// host it passes showing a port open, a handshake flashing along a link
+// now and then, a hex dump scrolling by at its edge, and the trace's
+// route under it. A larger pane shows more of the network.
+var tracerouteAnim = &animation{id: "traceroute", name: "Traceroute", fps: 20, tile: ui.Hex("#3b5bdb"), draw: drawTraceroute}
+
+// traceHost is a host of the traceroute's network: its place in the
+// lattice the hosts are laid on, its cell, and its pixel.
+type traceHost struct {
+	i, j     int
+	col, row float64
+	x, y     float64
+}
+
+func drawTraceroute(g *grid, t float64, pal animPalette) {
+	ink := pal.inks(tracerouteRoles)
+	var (
+		night, link, rule = ink("#05070d"), ink("#2b3566"), ink("#1c2240")
+		dim, dump         = ink("#6b7399"), ink("#4a5170")
+		packet, found     = ink("#5cf2ff"), ink("#ffd75e")
+	)
+	g.fill(night)
+	left, right, top, bottom := g.x0/2, g.x1/2, g.y0/4, g.y1/4
+	status := g.rows >= 3
+	mapBottom := bottom
+	if status {
+		mapBottom--
+	}
+	// The hex dump takes the right fourteen columns of a pane wide
+	// enough.
+	dumpAt := right
+	if right-left >= 60 {
+		dumpAt = right - 14
+	}
+
+	// The hosts, on a lattice of twelve columns by five rows, a few
+	// missing, each with room for its label right of it.
+	const sx, sy = 12, 5
+	var hosts []*traceHost
+	at := map[[2]int]*traceHost{}
+	for j := int(math.Floor((top-2)/sy)) - 1; float64(j*sy) < mapBottom; j++ {
+		for i := int(math.Floor((left-4)/sx)) - 1; float64(i*sx) < dumpAt; i++ {
+			if hash(i, j, 3) > 0.85 {
+				continue
+			}
+			col := float64(2+i*sx) + math.Floor(hash(i, j, 1)*3)
+			row := float64(1+j*sy) + math.Floor(hash(i, j, 2)*2)
+			if col < left || col+7 >= dumpAt || row < top || row >= mapBottom {
+				continue
+			}
+			h := &traceHost{i: i, j: j, col: col, row: row, x: col*2 + 1, y: row*4 + 2}
+			hosts = append(hosts, h)
+			at[[2]int{i, j}] = h
+		}
+	}
+	// Links and packets pass under the hosts' labels, not over them.
+	labels := map[[2]int]bool{}
+	for _, h := range hosts {
+		for c := h.col + 1; c < h.col+8; c++ {
+			labels[[2]int{int(c), int(h.row)}] = true
+		}
+	}
+	bare := func(x, y float64) bool {
+		c, r := cellOf(x, y)
+		return !labels[[2]int{int(c), int(r)}]
+	}
+	type traceLink struct {
+		a, b *traceHost
+		kind int
+	}
+	var links []traceLink
+	for _, h := range hosts {
+		for kind, d := range [3]struct {
+			di, dj int
+			p      float64
+		}{{1, 0, 0.85}, {0, 1, 0.6}, {1, 1, 0.22}} {
+			if o := at[[2]int{h.i + d.di, h.j + d.dj}]; o != nil && hash(h.i*7+d.di, h.j*7+d.dj, 4) < d.p {
+				links = append(links, traceLink{h, o, kind})
+			}
+		}
+	}
+	for _, l := range links {
+		n := math.Ceil(math.Hypot(l.b.x-l.a.x, l.b.y-l.a.y) * 2)
+		for s := 0.0; s <= n; s++ {
+			if x, y := l.a.x+(l.b.x-l.a.x)*s/n, l.a.y+(l.b.y-l.a.y)*s/n; int(s)/4%2 == 0 && bare(x, y) {
+				g.mix(x, y, link, 0.8)
+			}
+		}
+	}
+	// Packets, one or two a link, each its own way and pace.
+	for _, l := range links {
+		e, f := l.a.i*3+l.kind, l.a.j
+		np := 1
+		if hash(e, f, 5) < 0.45 {
+			np = 2
+		}
+		for q := range np {
+			sp, back := 0.16+0.3*hash(e, f*2+q, 6), hash(e, f*2+q, 7) < 0.5
+			for k := range 6 {
+				p := wrap(hash(e, f*2+q, 8)+t*sp-float64(k)*0.012, 1)
+				if back {
+					p = 1 - p
+				}
+				x, y := l.a.x+(l.b.x-l.a.x)*p, l.a.y+(l.b.y-l.a.y)*p
+				if !bare(x, y) {
+					continue
+				}
+				if k == 0 {
+					g.light(x, y, packet, 1)
+				} else {
+					g.mix(x, y, packet, 0.5*(1-float64(k)/6))
+				}
+			}
+		}
+	}
+	// A handshake along a link, every 1.4 seconds.
+	if hk := math.Floor(t / 1.4); len(links) > 0 && t-hk*1.4 < 0.6 {
+		l := links[pick(hash(int(hk), 0, 77), len(links))]
+		n := math.Ceil(math.Hypot(l.b.x-l.a.x, l.b.y-l.a.y) * 1.5)
+		for s := 0.0; s <= n; s++ {
+			if x, y := l.a.x+(l.b.x-l.a.x)*s/n, l.a.y+(l.b.y-l.a.y)*s/n; bare(x, y) {
+				g.splat(x, y, packet, 0.7*(1-(t-hk*1.4)/0.6))
+			}
+		}
+	}
+	// The scan sweeps the map in 7 seconds of every 11, and the hosts it
+	// passed show a port open till it starts again.
+	const sweepFor, scanEvery = 7.0, 11.0
+	local, cycle := wrap(t, scanEvery), int(math.Floor(t/scanEvery))
+	sweep := g.x0 + min(1, local/sweepFor)*(dumpAt*2-g.x0)
+	if local < sweepFor {
+		for y := top * 4; y < mapBottom*4; y++ {
+			g.light(sweep, y, packet, 0.4)
+			for d := 1.0; d < 10; d++ {
+				g.mix(sweep-d, y, packet, 0.1*(1-d/10))
+			}
+		}
+	}
+	ports := [...]string{":22", ":80", ":443", ":8080", ":5432"}
+	for _, h := range hosts {
+		lit := h.x < sweep
+		if lit {
+			g.glow(h.x, h.y, 4, found, 0.15)
+			g.text(h.col, h.row, "◆", found)
+			g.text(h.col+2, h.row, ports[pick(hash(h.i, h.j, cycle+40), len(ports))], mixRGB(found, night, 0.25))
+			continue
+		}
+		g.text(h.col, h.row, "◇", dim)
+		g.text(h.col+2, h.row, fmt.Sprintf("%02x.%02x", int(hash(h.i, h.j, 20)*255), int(hash(h.i, h.j, 21)*255)), dim)
+	}
+	if dumpAt < right {
+		for y := g.y0; y < g.y1; y++ {
+			g.set(dumpAt*2, y, rule)
+		}
+		for row := top; row < mapBottom; row++ {
+			line := int(row) + int(math.Floor(t*2.5))
+			c := dump
+			if hash(line, 9, 91) < 0.12 {
+				c = packet
+			}
+			g.text(dumpAt+2, row, fmt.Sprintf("%02x %02x %02x %02x", int(hash(line, 0, 90)*255), int(hash(line, 1, 90)*255),
+				int(hash(line, 2, 90)*255), int(hash(line, 3, 90)*255)), c)
+		}
+	}
+	if status && right-left > 4 {
+		k := int(math.Floor(t / 2.2))
+		q := func(b int) int { return 2 + int(hash(k, b, 60)*250) }
+		s := []rune(fmt.Sprintf("trace 10.%d.%d.%d  hops %d  rtt %dms", q(1), q(2), q(3),
+			4+int(hash(k, 4, 60)*9), 12+int(hash(k, 5, 60)*30)))
+		s = s[:min(len(s), int(right-left)-4)]
+		g.text(left+1, bottom-1, "›", packet)
+		g.text(left+3, bottom-1, string(s), dim)
+	}
+}
+
+// Night Build: a build log running through the night with nobody at the
+// keyboard: patch after patch, its file, its diff typed out over green
+// and red bands, its test run with a spinner beside it, the result and
+// the commit, and straight on to the next, round and round, under a
+// status bar counting the commits. A larger pane shows more of the log.
+var nightBuildAnim = &animation{id: "night-build", name: "Night Build", fps: 20, tile: ui.Hex("#e0a458"), draw: drawNightBuild}
+
+// buildPatch is a patch of the night build: its file, its diff, the test
+// it runs, what the test says, and its commit.
+type buildPatch struct {
+	file, test, out, hash, msg string
+	diff                       []buildDiff
+}
+
+// buildDiff is a line of a patch's diff: its number, + or -, and its code.
+type buildDiff struct {
+	n    int
+	sign byte
+	code string
+}
+
+var buildPatches = []buildPatch{
+	{file: "build/pipeline.go", test: "go test ./build", out: "build   0.42s   12 passed", hash: "a41f09", msg: "remove the build's nap",
+		diff: []buildDiff{{41, '-', "time.Sleep(10 * time.Second) // let it think"}, {41, '+', "// it has thought enough"},
+			{58, '+', `cache.Warm(ctx, "coffee")`}}},
+	{file: "clock/clock_test.go", test: "go test -count 100 ./clock", out: "clock   100/100 passed", hash: "7c2e5b", msg: "let the test run on fridays",
+		diff: []buildDiff{{17, '-', "if time.Now().Weekday() == time.Friday {"}, {18, '-', `  t.Skip("too tired")`},
+			{17, '+', "// fridays are fine now"}}},
+	{file: "geom/reticulate.go", test: "go test ./geom", out: "geom   0.07s   TestReticulate", hash: "e93d40", msg: "reticulate the splines, all 7",
+		diff: []buildDiff{{1, '+', "func Reticulate(s []Spline) []Spline {"}, {2, '+', "  for i := range s {"},
+			{3, '+', "    s[i].Knots = s[i].Knots.Untangle()"}, {4, '+', "  }"},
+			{5, '+', "  return s // fully reticulated"}, {6, '+', "}"}}},
+	{file: "office/coffee.go", test: "go test ./office", out: "office   0.01s   TestCoffeeIsHot", hash: "0b81fa", msg: "stop serving decaf",
+		diff: []buildDiff{{12, '-', "const Strength = 0.4"}, {12, '+', "const Strength = 0.9 // it was decaf"},
+			{31, '+', "if cup.Temp < 60 { cup.Reheat() }"}}},
+}
+
+// buildEntry is a line of the night build's log: what it is, when it
+// shows, and for one typed, when it starts to be and how fast.
+type buildEntry struct {
+	kind    string // file, code, test, out, commit or blank
+	at, dur float64
+	typed   bool
+	typeAt  float64
+	diff    buildDiff
+	patch   int
+}
+
+// buildLog lays the patches out in time, and returns the log and how long
+// it runs before it starts again.
+func buildLog() ([]buildEntry, float64) {
+	const testFor = 1.4
+	var log []buildEntry
+	t := 0.0
+	for pi, p := range buildPatches {
+		log = append(log, buildEntry{kind: "file", at: t, patch: pi})
+		t += 0.5
+		for _, d := range p.diff {
+			e := buildEntry{kind: "code", at: t, diff: d, patch: pi}
+			if d.sign == '+' {
+				e.typed, e.typeAt = true, t
+				t += float64(len(d.code))/buildCPS + 0.15
+			} else {
+				t += 0.25
+			}
+			log = append(log, e)
+		}
+		t += 0.3
+		log = append(log, buildEntry{kind: "test", at: t, dur: testFor, patch: pi})
+		t += testFor
+		log = append(log, buildEntry{kind: "out", at: t, patch: pi})
+		t += 0.5
+		log = append(log, buildEntry{kind: "commit", at: t, patch: pi})
+		t += 0.9
+		log = append(log, buildEntry{kind: "blank", at: t, patch: pi})
+		t += 0.3
+	}
+	return log, t
+}
+
+var buildEntries, buildLength = buildLog()
+
+// buildCPS is how many characters a second the diffs are typed at.
+const buildCPS = 45.0
+
+// buildSyntax finds what buildCode colors: comments, strings, keywords
+// and numbers.
+var buildSyntax = regexp.MustCompile(`(//.*$)|("[^"]*")|\b(func|for|range|return|if|const)\b|\b(\d+(?:\.\d+)?)\b`)
+
+// buildSpan is a run of text of the log in a color.
+type buildSpan struct {
+	s string
+	c rgb
+}
+
+// buildCode colors a line of Go.
+func buildCode(s string, text, dim, accent, str rgb) []buildSpan {
+	var out []buildSpan
+	last := 0
+	for _, m := range buildSyntax.FindAllStringSubmatchIndex(s, -1) {
+		if m[0] > last {
+			out = append(out, buildSpan{s[last:m[0]], text})
+		}
+		c := accent
+		switch {
+		case m[2] >= 0:
+			c = dim
+		case m[4] >= 0 || m[8] >= 0:
+			c = str
+		}
+		out = append(out, buildSpan{s[m[0]:m[1]], c})
+		last = m[1]
+	}
+	if last < len(s) {
+		out = append(out, buildSpan{s[last:], text})
+	}
+	return out
+}
+
+// cutSpans returns the first n characters of spans.
+func cutSpans(spans []buildSpan, n int) []buildSpan {
+	var out []buildSpan
+	for _, sp := range spans {
+		if n <= 0 {
+			break
+		}
+		r := []rune(sp.s)
+		out = append(out, buildSpan{string(r[:min(n, len(r))]), sp.c})
+		n -= len(r)
+	}
+	return out
+}
+
+func drawNightBuild(g *grid, t float64, pal animPalette) {
+	ink := pal.inks(nightBuildRoles)
+	var (
+		night, bar, text, dim = ink("#07080d"), ink("#12141e"), ink("#cdd3e6"), ink("#5d6684")
+		accent, path, str     = ink("#4fd8ef"), ink("#b18cff"), ink("#ffd75e")
+		add, addBand          = ink("#7ee08a"), ink("#0e2616")
+		del, delBand          = ink("#ff7b86"), ink("#2b0f14")
+	)
+	g.fill(night)
+	left, right, top, bottom := g.x0/2, g.x1/2, g.y0/4, g.y1/4
+	status := g.rows >= 3
+	last := bottom - 1
+	if status {
+		last = bottom - 2
+	}
+	col0 := left + 1
+	now, round := wrap(t, buildLength), math.Floor(t/buildLength)
+
+	// The log so far, the last round's and this round's, as many lines as
+	// show, at the time each shows at: done, for the last round's.
+	type shown struct {
+		e  buildEntry
+		at float64
+	}
+	var log []shown
+	for _, e := range buildEntries {
+		log = append(log, shown{e, math.Inf(1)})
+	}
+	for _, e := range buildEntries {
+		if e.at <= now {
+			log = append(log, shown{e, now})
+		}
+	}
+	log = log[max(0, len(log)-int(last-top+1)):]
+	cursor, typing := [2]float64{}, false
+	band := func(row float64, c rgb) {
+		for x := g.x0; x < g.x1; x++ {
+			for y := row * 4; y < row*4+4; y++ {
+				g.set(x, y, c)
+			}
+		}
+	}
+	for i, l := range log {
+		row := last - float64(len(log)-1-i)
+		p := buildPatches[l.e.patch]
+		var spans []buildSpan
+		switch l.e.kind {
+		case "file":
+			rule := strings.Repeat("─", max(0, int(math.Floor(right-col0))-len(p.file)-4))
+			spans = []buildSpan{{"── ", dim}, {p.file, path}, {" " + rule, dim}}
+		case "code":
+			d := l.e.diff
+			sign, bg := add, addBand
+			if d.sign == '-' {
+				sign, bg = del, delBand
+			}
+			band(row, bg)
+			code := buildCode(d.code, text, dim, accent, str)
+			if l.e.typed && l.at < l.e.typeAt+float64(len(d.code))/buildCPS {
+				n := max(0, int(math.Floor((l.at-l.e.typeAt)*buildCPS)))
+				code = cutSpans(code, n)
+				cursor, typing = [2]float64{col0 + 9 + float64(n), row}, true
+			}
+			spans = append([]buildSpan{{fmt.Sprintf("  %3d ", d.n), dim}, {string(d.sign) + " ", sign}}, code...)
+		case "test":
+			spans = []buildSpan{{"  $ ", accent}, {p.test, text}}
+			if l.at < l.e.at+l.e.dur {
+				// A spinner after the command while the test runs.
+				head := math.Mod(math.Floor(l.at*12), 8)
+				cx, cy := (col0+5+float64(len(p.test)))*2, row*4+2
+				for k := range 8 {
+					fk := float64(k)
+					if age := wrap(head-fk, 8); age < 4 {
+						g.light(cx+math.Round(1.6*math.Cos(fk*math.Pi/4))-0.5, cy+math.Round(1.6*math.Sin(fk*math.Pi/4))-0.5, accent, 1-age/4)
+					}
+				}
+			}
+		case "out":
+			spans = []buildSpan{{"  ok  ", add}, {p.out, dim}}
+		case "commit":
+			spans = []buildSpan{{"  ✓ ", add}, {p.hash + "  ", dim}, {p.msg, text}}
+		}
+		col := col0
+		for _, sp := range spans {
+			col = g.text(col, row, sp.s, sp.c)
+		}
+	}
+	if typing {
+		for x := range 2 {
+			for y := range 4 {
+				g.mix(cursor[0]*2+float64(x), cursor[1]*4+float64(y), text, 0.8)
+			}
+		}
+	}
+	if !status {
+		return
+	}
+	// The status bar: the build's tally, ever counting.
+	sr := bottom - 1
+	band(sr, bar)
+	patch, commits := 0, 1204+int(round)*len(buildPatches) // it has been at it a while
+	for _, e := range buildEntries {
+		if e.at <= now {
+			patch = e.patch
+			if e.kind == "commit" {
+				commits++
+			}
+		}
+	}
+	col := g.text(col0, sr, "night build", accent)
+	col = g.text(col, sr, fmt.Sprintf("  ·  patch %d/%d  ·  %d commits  ·  coffee: cold", patch+1, len(buildPatches), commits), dim)
+	if right-col > 12 {
+		g.text(right-10, sr, "● running", add)
 	}
 }

@@ -24,6 +24,7 @@ const (
 	roleRed                 // beacons
 	roleMagenta             // a fringe of the subject
 	roleText                // whites
+	roleGreen               // what is added, what passes
 )
 
 // sceneRoles are the roles of a scene's colors: by hue, in degrees, for
@@ -62,6 +63,8 @@ func (p animPalette) roleColor(r role) rgb {
 		return p.ansi[5]
 	case roleText:
 		return p.text
+	case roleGreen:
+		return p.ansi[2]
 	}
 	return p.second
 }
@@ -198,6 +201,49 @@ var (
 		}
 		return roleSecond
 	}}
+
+	// The scope's trace and readout are its subject; its screen and
+	// graticule, blue-grey, its shade; its trigger lamp yellow.
+	oscilloscopeRoles = &sceneRoles{id: "oscilloscope", byHue: func(h float64) role {
+		switch {
+		case h >= 120 && h < 180:
+			return roleAccent
+		case h >= 40 && h < 110:
+			return roleYellow
+		}
+		return roleSecond
+	}, over: map[string]role{"#060b10": roleSecond, "#1a2b36": roleSecond}} // the screen and graticule, too grey for a hue of their own
+
+	// The packets and the scan, cyan, are the subject; the links and
+	// the night, indigo, the shade; the hosts found yellow.
+	tracerouteRoles = &sceneRoles{id: "traceroute", byHue: func(h float64) role {
+		switch {
+		case h >= 180 && h < 250:
+			return roleAccent
+		case h >= 40 && h < 110:
+			return roleYellow
+		}
+		return roleSecond
+	}, over: map[string]role{"#05070d": roleSecond}} // the night, too grey for a hue of its own
+
+	// The night build's commands are its subject; file paths magenta;
+	// what is added green and what is removed red, bands and all;
+	// strings yellow; the night and the status bar its shade.
+	nightBuildRoles = &sceneRoles{id: "night-build", byHue: func(h float64) role {
+		switch {
+		case h >= 180 && h < 250:
+			return roleAccent
+		case h >= 130 && h < 180:
+			return roleGreen
+		case h >= 280 && h < 330:
+			return roleMagenta
+		case h >= 40 && h < 110:
+			return roleYellow
+		case h < 40 || h >= 345:
+			return roleRed
+		}
+		return roleSecond
+	}, over: map[string]role{"#07080d": roleSecond, "#12141e": roleSecond}} // the night and the bar, too grey for a hue of their own
 
 	auroraRoles = &sceneRoles{id: "aurora", byHue: func(h float64) role {
 		switch {

@@ -145,8 +145,14 @@ func TestAnimationPane(t *testing.T) {
 	if err := tt.Click("Next Animation"); err != nil {
 		t.Fatal(err)
 	}
-	if p.anim != animations[0].id {
-		t.Errorf("after Aurora comes %q", p.anim)
+	next := animations[0]
+	for i, an := range animations {
+		if an == auroraAnim {
+			next = animations[(i+1)%len(animations)]
+		}
+	}
+	if p.anim != next.id {
+		t.Errorf("after Aurora comes %q, not %q", p.anim, next.id)
 	}
 	a.saveNow()
 	shell.term.Close()
@@ -160,7 +166,7 @@ func TestAnimationPane(t *testing.T) {
 			anims = append(anims, q.anim)
 		}
 	}
-	if len(anims) != 1 || anims[0] != animations[0].id {
+	if len(anims) != 1 || anims[0] != next.id {
 		t.Errorf("restored animations %q", anims)
 	}
 }
