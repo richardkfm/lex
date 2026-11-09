@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/egoist/mygo/ui"
@@ -8,7 +9,8 @@ import (
 
 // The scenes an animation pane plays (animations.go): abstract places,
 // lit, and alive in small ways: sand drifts, traffic streams, water
-// falls, a helix turns, lights cross the sky. Each is composed on the
+// falls, a helix turns, lights cross the sky, a scope traces its
+// figures, packets run through a network. Each is composed on the
 // design's pixels and goes on past them in a larger pane: more sky, more
 // dunes, more skyline, more towers. Each is painted from the time and the
 // pane's size alone.
@@ -848,5 +850,296 @@ func drawAurora(g *grid, t float64, pal animPalette) {
 			}
 			g.set(x, y, c)
 		}
+	}
+}
+
+// Oscilloscope: a scope in X–Y mode tracing Lissajous figures, two sines
+// in a ratio that changes every few seconds, 1:1, 1:2, 3:2, 3:4, 5:4,
+// 2:3, as their phase drifts, the trace brightest where it slows and
+// leaving an afterglow; its graticule behind, and its channels'
+// frequencies and phase read out under it. A larger pane is a larger
+// screen, of the same ten divisions by eight.
+var oscilloscopeAnim = &animation{id: "oscilloscope", name: "Oscilloscope", fps: 24, tile: ui.Hex("#0f9f8f"), draw: drawOscilloscope}
+
+// scopeRatios are the ratios of the scope's two sines, in turn.
+var scopeRatios = [...][2]float64{{1, 1}, {1, 2}, {3, 2}, {3, 4}, {5, 4}, {2, 3}}
+
+func drawOscilloscope(g *grid, t float64, pal animPalette) {
+	ink := pal.inks(oscilloscopeRoles)
+	var (
+		screen, grat, axis = ink("#060b10"), ink("#1a2b36"), ink("#2a4252")
+		trace, label       = ink("#46f08c"), ink("#56708a")
+		value, trig        = ink("#7dffb2"), ink("#ffd75e")
+	)
+	g.fill(screen)
+	// The screen is all the pane but its last row, which reads out.
+	left, right, last := g.x0/2, g.x1/2, g.y1/4-1
+	sx0, sx1, sy0, sy1 := g.x0, g.x1, g.y0, g.y1
+	readout := g.rows >= 3
+	if readout {
+		sy1 = last * 4
+	}
+	w, h := sx1-sx0, sy1-sy0
+	for k := 0.0; k <= 10; k++ {
+		x, c := sx0+math.Round(k*(w-1)/10), grat
+		if k == 5 {
+			c = axis
+		}
+		for y := sy0 + 1; y < sy1; y += 2 {
+			g.set(x, y, c)
+		}
+	}
+	for k := 0.0; k <= 8; k++ {
+		y, c := sy0+math.Round(k*(h-1)/8), grat
+		if k == 4 {
+			c = axis
+		}
+		for x := sx0 + 1; x < sx1; x += 2 {
+			g.set(x, y, c)
+		}
+	}
+	mid, tick := sy0+math.Round((h-1)/2), max(2, math.Round(w/50))
+	for x := sx0; x < sx1; x += tick {
+		g.set(x, mid-1, axis)
+		g.set(x, mid+1, axis)
+	}
+
+	// The figure: x a sine of a, y of b, the ratio easing to the next in
+	// the last 1.6 seconds of its 7.
+	const hold = 7.0
+	n := math.Floor(t / hold)
+	r0 := scopeRatios[int(n)%len(scopeRatios)]
+	r1 := scopeRatios[int(n+1)%len(scopeRatios)]
+	m := smooth(clamp((t-n*hold-5.4)/1.6, 0, 1))
+	a, b := r0[0]+(r1[0]-r0[0])*m, r0[1]+(r1[1]-r0[1])*m
+	phi := t * 0.45
+	cx, cy, ax, ay := (sx0+sx1)/2, (sy0+sy1)/2, w*0.42, h*0.4
+	at := func(s, ph float64) (float64, float64) {
+		return cx + ax*math.Sin(a*s+ph), cy - ay*math.Sin(b*s)
+	}
+	length := 0.0
+	px, py := at(0, phi)
+	for i := 1; i <= 400; i++ {
+		x, y := at(float64(i)/400*2*math.Pi, phi)
+		length += math.Hypot(x-px, y-py)
+		px, py = x, y
+	}
+	// curve traces the figure at phase ph, gain of the trace's light to
+	// a pixel along it, density samples a pixel: more light where it
+	// slows, as the beam lingers there. The afterglow is the figure at
+	// the phases just past, fainter as they are older.
+	curve := func(ph, gain, density float64) {
+		samples := max(300, int(length*density))
+		k := gain * length / float64(samples)
+		for i := range samples {
+			x, y := at(float64(i)/float64(samples)*2*math.Pi, ph)
+			g.light(x, y, trace, k)
+			g.light(x+1, y, trace, k*0.18)
+			g.light(x-1, y, trace, k*0.18)
+			g.light(x, y+1, trace, k*0.18)
+			g.light(x, y-1, trace, k*0.18)
+		}
+	}
+	for k := 10.0; k >= 1; k-- {
+		curve(phi-k*0.035, 0.32*math.Pow(0.78, k), 3)
+	}
+	curve(phi, 1, 6)
+
+	if !readout {
+		return
+	}
+	col := left + 1
+	for _, part := range []struct {
+		s string
+		c rgb
+	}{
+		{"CH1 ", label}, {fmt.Sprintf("%.0fHz", 220*a), value},
+		{"  CH2 ", label}, {fmt.Sprintf("%.0fHz", 220*b), value},
+		{"  φ ", label}, {fmt.Sprintf("%.2fπ", wrap(phi/math.Pi, 2)), value},
+		{"  X-Y  1V/div", label},
+	} {
+		if col+float64(len([]rune(part.s))) > right {
+			break
+		}
+		col = g.text(col, last, part.s, part.c)
+	}
+	if right-left > 50 && int(math.Floor(t*2))%4 != 0 {
+		g.text(right-7, g.y0/4, "● TRIG", trig)
+	}
+}
+
+// Traceroute: a network, hosts with their addresses and links between
+// them, packets running along the links; a scan sweeping across it, each
+// host it passes showing a port open, a handshake flashing along a link
+// now and then, a hex dump scrolling by at its edge, and the trace's
+// route under it. A larger pane shows more of the network.
+var tracerouteAnim = &animation{id: "traceroute", name: "Traceroute", fps: 20, tile: ui.Hex("#3b5bdb"), draw: drawTraceroute}
+
+// traceHost is a host of the traceroute's network: its place in the
+// lattice the hosts are laid on, its cell, and its pixel.
+type traceHost struct {
+	i, j     int
+	col, row float64
+	x, y     float64
+}
+
+func drawTraceroute(g *grid, t float64, pal animPalette) {
+	ink := pal.inks(tracerouteRoles)
+	var (
+		night, link, rule = ink("#05070d"), ink("#2b3566"), ink("#1c2240")
+		dim, dump         = ink("#6b7399"), ink("#4a5170")
+		packet, found     = ink("#5cf2ff"), ink("#ffd75e")
+	)
+	g.fill(night)
+	left, right, top, bottom := g.x0/2, g.x1/2, g.y0/4, g.y1/4
+	status := g.rows >= 3
+	mapBottom := bottom
+	if status {
+		mapBottom--
+	}
+	// The hex dump takes the right fourteen columns of a pane wide
+	// enough.
+	dumpAt := right
+	if right-left >= 60 {
+		dumpAt = right - 14
+	}
+
+	// The hosts, on a lattice of twelve columns by five rows, a few
+	// missing, each with room for its label right of it.
+	const sx, sy = 12, 5
+	var hosts []*traceHost
+	at := map[[2]int]*traceHost{}
+	for j := int(math.Floor((top-2)/sy)) - 1; float64(j*sy) < mapBottom; j++ {
+		for i := int(math.Floor((left-4)/sx)) - 1; float64(i*sx) < dumpAt; i++ {
+			if hash(i, j, 3) > 0.85 {
+				continue
+			}
+			col := float64(2+i*sx) + math.Floor(hash(i, j, 1)*3)
+			row := float64(1+j*sy) + math.Floor(hash(i, j, 2)*2)
+			if col < left || col+7 >= dumpAt || row < top || row >= mapBottom {
+				continue
+			}
+			h := &traceHost{i: i, j: j, col: col, row: row, x: col*2 + 1, y: row*4 + 2}
+			hosts = append(hosts, h)
+			at[[2]int{i, j}] = h
+		}
+	}
+	// Links and packets pass under the hosts' labels, not over them.
+	labels := map[[2]int]bool{}
+	for _, h := range hosts {
+		for c := h.col + 1; c < h.col+8; c++ {
+			labels[[2]int{int(c), int(h.row)}] = true
+		}
+	}
+	bare := func(x, y float64) bool {
+		c, r := cellOf(x, y)
+		return !labels[[2]int{int(c), int(r)}]
+	}
+	type traceLink struct {
+		a, b *traceHost
+		kind int
+	}
+	var links []traceLink
+	for _, h := range hosts {
+		for kind, d := range [3]struct {
+			di, dj int
+			p      float64
+		}{{1, 0, 0.85}, {0, 1, 0.6}, {1, 1, 0.22}} {
+			if o := at[[2]int{h.i + d.di, h.j + d.dj}]; o != nil && hash(h.i*7+d.di, h.j*7+d.dj, 4) < d.p {
+				links = append(links, traceLink{h, o, kind})
+			}
+		}
+	}
+	for _, l := range links {
+		n := math.Ceil(math.Hypot(l.b.x-l.a.x, l.b.y-l.a.y) * 2)
+		for s := 0.0; s <= n; s++ {
+			if x, y := l.a.x+(l.b.x-l.a.x)*s/n, l.a.y+(l.b.y-l.a.y)*s/n; int(s)/4%2 == 0 && bare(x, y) {
+				g.mix(x, y, link, 0.8)
+			}
+		}
+	}
+	// Packets, one or two a link, each its own way and pace.
+	for _, l := range links {
+		e, f := l.a.i*3+l.kind, l.a.j
+		np := 1
+		if hash(e, f, 5) < 0.45 {
+			np = 2
+		}
+		for q := range np {
+			sp, back := 0.16+0.3*hash(e, f*2+q, 6), hash(e, f*2+q, 7) < 0.5
+			for k := range 6 {
+				p := wrap(hash(e, f*2+q, 8)+t*sp-float64(k)*0.012, 1)
+				if back {
+					p = 1 - p
+				}
+				x, y := l.a.x+(l.b.x-l.a.x)*p, l.a.y+(l.b.y-l.a.y)*p
+				if !bare(x, y) {
+					continue
+				}
+				if k == 0 {
+					g.light(x, y, packet, 1)
+				} else {
+					g.mix(x, y, packet, 0.5*(1-float64(k)/6))
+				}
+			}
+		}
+	}
+	// A handshake along a link, every 1.4 seconds.
+	if hk := math.Floor(t / 1.4); len(links) > 0 && t-hk*1.4 < 0.6 {
+		l := links[pick(hash(int(hk), 0, 77), len(links))]
+		n := math.Ceil(math.Hypot(l.b.x-l.a.x, l.b.y-l.a.y) * 1.5)
+		for s := 0.0; s <= n; s++ {
+			if x, y := l.a.x+(l.b.x-l.a.x)*s/n, l.a.y+(l.b.y-l.a.y)*s/n; bare(x, y) {
+				g.splat(x, y, packet, 0.7*(1-(t-hk*1.4)/0.6))
+			}
+		}
+	}
+	// The scan sweeps the map in 7 seconds of every 11, and the hosts it
+	// passed show a port open till it starts again.
+	const sweepFor, scanEvery = 7.0, 11.0
+	local, cycle := wrap(t, scanEvery), int(math.Floor(t/scanEvery))
+	sweep := g.x0 + min(1, local/sweepFor)*(dumpAt*2-g.x0)
+	if local < sweepFor {
+		for y := top * 4; y < mapBottom*4; y++ {
+			g.light(sweep, y, packet, 0.4)
+			for d := 1.0; d < 10; d++ {
+				g.mix(sweep-d, y, packet, 0.1*(1-d/10))
+			}
+		}
+	}
+	ports := [...]string{":22", ":80", ":443", ":8080", ":5432"}
+	for _, h := range hosts {
+		lit := h.x < sweep
+		if lit {
+			g.glow(h.x, h.y, 4, found, 0.15)
+			g.text(h.col, h.row, "◆", found)
+			g.text(h.col+2, h.row, ports[pick(hash(h.i, h.j, cycle+40), len(ports))], mixRGB(found, night, 0.25))
+			continue
+		}
+		g.text(h.col, h.row, "◇", dim)
+		g.text(h.col+2, h.row, fmt.Sprintf("%02x.%02x", int(hash(h.i, h.j, 20)*255), int(hash(h.i, h.j, 21)*255)), dim)
+	}
+	if dumpAt < right {
+		for y := g.y0; y < g.y1; y++ {
+			g.set(dumpAt*2, y, rule)
+		}
+		for row := top; row < mapBottom; row++ {
+			line := int(row) + int(math.Floor(t*2.5))
+			c := dump
+			if hash(line, 9, 91) < 0.12 {
+				c = packet
+			}
+			g.text(dumpAt+2, row, fmt.Sprintf("%02x %02x %02x %02x", int(hash(line, 0, 90)*255), int(hash(line, 1, 90)*255),
+				int(hash(line, 2, 90)*255), int(hash(line, 3, 90)*255)), c)
+		}
+	}
+	if status && right-left > 4 {
+		k := int(math.Floor(t / 2.2))
+		q := func(b int) int { return 2 + int(hash(k, b, 60)*250) }
+		s := []rune(fmt.Sprintf("trace 10.%d.%d.%d  hops %d  rtt %dms", q(1), q(2), q(3),
+			4+int(hash(k, 4, 60)*9), 12+int(hash(k, 5, 60)*30)))
+		s = s[:min(len(s), int(right-left)-4)]
+		g.text(left+1, bottom-1, "›", packet)
+		g.text(left+3, bottom-1, string(s), dim)
 	}
 }

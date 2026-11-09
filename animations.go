@@ -33,7 +33,7 @@ type animation struct {
 
 // animations are the animations, in the order the palette and the
 // header's arrows go through them.
-var animations = []*animation{duneSeaAnim, neonGridAnim, gardenCityAnim, helixAnim, auroraAnim}
+var animations = []*animation{duneSeaAnim, neonGridAnim, gardenCityAnim, helixAnim, auroraAnim, oscilloscopeAnim, tracerouteAnim}
 
 // animationOf returns the animation of id, the first for one Lex does not
 // know, as of a layout of a later version.
@@ -208,6 +208,20 @@ func (g *grid) mix(x, y float64, c rgb, a float64) {
 	}
 }
 
+// light adds c, a of it, to the pixel at (x, y), as light falling on it
+// does: lights adding up to white at most.
+func (g *grid) light(x, y float64, c rgb, a float64) {
+	if a <= 0 {
+		return
+	}
+	if i, ok := g.pix(x, y); ok && !math.IsNaN(float64(g.px[i])) {
+		k := float32(a)
+		g.px[i] = min(g.px[i]+float32(c[0])*k, 255)
+		g.px[i+1] = min(g.px[i+1]+float32(c[1])*k, 255)
+		g.px[i+2] = min(g.px[i+2]+float32(c[2])*k, 255)
+	}
+}
+
 // sky paints the rows above y1 in the colors stops, from the design's top
 // to y1, the first above its top, as a pane taller than the design shows.
 func (g *grid) sky(y1 float64, stops ...rgb) {
@@ -286,6 +300,18 @@ func (g *grid) char(col, row float64, ch rune, c rgb) {
 	if cl >= 0 && rw >= 0 && cl < g.cols && rw < g.rows {
 		g.glyphs = append(g.glyphs, glyph{cl, rw, ch, c})
 	}
+}
+
+// text puts s over the cells of the design from (col, row) rightward, its
+// spaces left clear, and returns the column after it.
+func (g *grid) text(col, row float64, s string, c rgb) float64 {
+	for _, ch := range s {
+		if ch != ' ' {
+			g.char(col, row, ch, c)
+		}
+		col++
+	}
+	return col
 }
 
 // cellOf returns the cell of the design over the pixel at (x, y).
