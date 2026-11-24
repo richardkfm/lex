@@ -120,13 +120,10 @@ func (a *App) titleBar(c *ui.Context, k *colors) {
 	} else {
 		left += 14
 	}
+	// The title bar has no face of its own: it is the window's, as the
+	// gaps between panes are, and over a background image shows it as
+	// they do, dimmed as the settings ask.
 	row := ui.Row(c).Height(titleH).Padding(0, max(bar.Right, 10), 0, left).Gap(14).AlignItems(ui.Center).DragWindow()
-	// Over a background image, the title bar is backed by the window's
-	// color as translucent as the panes, so that its text and buttons
-	// stay readable on a picture of the other lightness.
-	if a.bgShown {
-		row.Background(a.overImage(k.bg))
-	}
 	row.Children(func() {
 		a.hostChip(c, k)
 		a.tabStrip(c, k)
